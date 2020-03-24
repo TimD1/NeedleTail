@@ -1,0 +1,4 @@
+<STR 0 LEN>
+<STR 1 LEN>
+<STR 0>
+<STR 1>

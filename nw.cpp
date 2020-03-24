@@ -5,7 +5,8 @@
 #include <fstream>
 #include <iostream>
 
-#define NUM_TEST_FILES 1
+#define NUM_TEST_FILES 2
+#define GAP_SCORE -1
 
 // Example similarity matrix.
 //    A  G  C  T
@@ -37,51 +38,54 @@ signed char nw_get_sim(signed char * s, char Ai, char Bi) {
   return s[base_to_val(Ai) * 4 + base_to_val(Bi)];
 }
 
-int * nw_scoring(signed char * s, char * t, char * q, uint32_t tlen, uint32_t qlen, signed char mis_or_ind) {
-  int * mat = (int *) malloc((tlen + 1) * (qlen + 1) * sizeof(int));
-  mat[0] = 0;
+int ** nw_scoring(signed char * s, char * t, char * q, uint32_t tlen, uint32_t qlen, signed char mis_or_ind) {
+  int ** mat = new int * [qlen + 1];
+  for(uint32_t i = 0; i < qlen + 1; ++i)
+    mat[i] = new int[tlen + 1];
+  mat[0][0] = 0;
   for (uint32_t i = 1; i <= qlen; ++i)
-    mat[i * (tlen + 1)] = mis_or_ind * i;
+    mat[i][0] = mis_or_ind * i;
   for (uint32_t i = 1; i <= tlen; ++i)
-    mat[i] = mis_or_ind * i;
+    mat[0][i] = mis_or_ind * i;
+
   for (uint32_t i = 1; i <= qlen; ++i) {
     for (uint32_t j = 1; j <= tlen; ++j) {
-      int m = mat[(i - 1) * (tlen + 1) + (j - 1)] + nw_get_sim(s, q[i - 1], t[j - 1]);
-      int d = mat[(i - 1) * (tlen + 1) + j] + mis_or_ind;
-      int i = mat[i * (tlen + 1) + (j - 1)] + mis_or_ind;
-      int f = m > d ? m : d;
-      f = f > i ? f : i;
-      mat[i * (tlen + 1) + j] = f;
+      int match = mat[i-1][j-1] + nw_get_sim(s, q[i-1], t[j-1]);
+      int del = mat[i-1][j] + mis_or_ind;
+      int ins = mat[i][j-1] + mis_or_ind;
+      int cell = match > del ? match : del;
+      cell = cell > ins ? cell : ins;
+      mat[i][j] = cell;
     }
   }
   return mat;
 }
 
-void nw_backtrack() {
-
-// AlignmentA ← ""
-// AlignmentB ← ""
-// i ← length(A)
-// j ← length(B)
-// while (i > 0 or j > 0) {
-//   if (i > 0 and j > 0 and F(i,j) == F(i-1,j-1) + S(Ai, Bj)) {
-//     AlignmentA ← Ai + AlignmentA
-//     AlignmentB ← Bj + AlignmentB
-//     i ← i - 1
-//     j ← j - 1
-//   }
-//   else if (i > 0 and F(i,j) == F(i-1,j) + d) {
-//     AlignmentA ← Ai + AlignmentA
-//     AlignmentB ← "-" + AlignmentB
-//     i ← i - 1
-//   }
-//   else {
-//     AlignmentA ← "-" + AlignmentA
-//     AlignmentB ← Bj + AlignmentB
-//     j ← j - 1
-//   }
-// }
-
+void nw_backtrack(int ** mat, signed char * s, char * t, char * q, uint32_t tlen, uint32_t qlen, signed char mis_or_ind) {
+  std::string t_algn = "";
+  std::string q_algn = "";
+  uint32_t j = tlen;
+  uint32_t i = qlen;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && mat[i][j] == mat[i-1][j-1] + nw_get_sim(s, q[i-1], t[j-1])) {
+      q_algn = q[i-1] + q_algn;
+      t_algn = t[j-1] + t_algn;
+      --i;
+      --j;
+    }
+    else if (i > 0 && mat[i][j] == mat[i-1][j] + mis_or_ind) {
+      q_algn = q[i-1] + q_algn;
+      t_algn = '-' + t_algn;
+      --i;
+    }
+    else {
+      q_algn = '-' + q_algn;
+      t_algn = t[j-1] + t_algn;
+      --j;
+    }
+  }
+  std::cout << t_algn << std::endl;
+  std::cout << q_algn << std::endl;
 }
 
 int main() {
@@ -120,7 +124,11 @@ int main() {
         strcpy(q, input_line.c_str());
       ++test_cnt;
     }
-    int * nw_score_mat = nw_scoring(s, t, q, tlen, qlen, -1);
+    int ** nw_score_mat = nw_scoring(s, t, q, tlen, qlen, GAP_SCORE);
+    nw_backtrack(nw_score_mat, s, t, q, tlen, qlen, GAP_SCORE);
+    for(int i = 0; i < qlen + 1; ++i)
+      delete [] nw_score_mat[i];
+    delete [] nw_score_mat;
   }
   return 0;
 }

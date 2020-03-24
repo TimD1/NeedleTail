@@ -1,11 +1,11 @@
 CC=g++
 CFLAGS=-c
 
-base_lcs: base_lcs_o
-	g++ -o base_lcs base_lcs.o
+base_nw: base_nw_o
+	g++ -o base_nw base_nw.o
 
-base_lcs_o: base_lcs.cpp
-	$(CC) $(CFLAGS) base_lcs.cpp
+base_nw_o: nw.cpp
+	$(CC) $(CFLAGS) nw.cpp
 
 clean:
-	rm -rf *.o base_lcs
+	rm -rf *.o base_nw

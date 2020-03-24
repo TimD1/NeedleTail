@@ -98,7 +98,7 @@ int main() {
   // Read in similarity matrix file.
   std::string sim_file = "datasets/similarity.txt";
   std::ifstream sim_file_stream(sim_file);
-  s = (signed char *) malloc(16 * sizeof(signed char));
+  s = new signed char[16];
   unsigned char sim_cnt = 0;
   while (std::getline(sim_file_stream, input_line)) {
     s[sim_cnt] = std::stoi(input_line);
@@ -112,11 +112,11 @@ int main() {
     while (std::getline(test_file_stream, input_line)) {
       if (test_cnt == 0) {
         tlen = std::stoll(input_line);
-        t = (char *) malloc(sizeof(char) * (tlen + 1));
+        t = new char [tlen + 1];
       }
       if (test_cnt == 1) {
         qlen = std::stoll(input_line);
-        q = (char *) malloc(sizeof(char) * (qlen + 1));
+        q = new char [qlen + 1];
       }
       if (test_cnt == 2)
         strcpy(t, input_line.c_str());
@@ -129,6 +129,9 @@ int main() {
     for(int i = 0; i < qlen + 1; ++i)
       delete [] nw_score_mat[i];
     delete [] nw_score_mat;
+    delete [] q;
+    delete [] t;
   }
+  delete [] s;
   return 0;
 }

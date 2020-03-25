@@ -8,7 +8,7 @@
 #include "cuda.h"
 #include "cuda_runtime.h"
 
-#define NUM_TEST_FILES 3
+#define NUM_TEST_FILES 1
 #define GAP_SCORE -1
 #define BLOCK_X_Y_DIM 32
 
@@ -59,13 +59,6 @@ __device__ signed char cuda_base_to_val(char B) {
 
 __device__ signed char cuda_nw_get_sim(char Ai, char Bi) {
   return c_s[cuda_base_to_val(Ai) * 4 + cuda_base_to_val(Bi)];
-}
-
-void cuda_error_check(cudaError_t e) {
- if (e != cudaSuccess) {
-   std::cerr << "CUDA FAILURE: " << cudaGetErrorString(e) << std::endl;
-   exit(0);
- }
 }
 
 void nw_backtrack(

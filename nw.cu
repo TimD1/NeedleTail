@@ -1,5 +1,12 @@
 #include "nw_general.h"
 
+void cuda_error_check(cudaError_t e) {
+  if (e != cudaSuccess) {
+    std::cerr << "CUDA FAILURE: " << cudaGetErrorString(e) << std::endl;
+    exit(0);
+  }
+}
+
 // Call this kernel "qlen + tlen - 1" times, then matrix will be done.
 __global__ void nw_shotgun_scoring_kernel(
   char * t,
@@ -51,8 +58,7 @@ __global__ void nw_shotgun_scoring_kernel(
     s_score_mat[l_ty][l_tx] = cell;
   }
 
-  // Coalesced writeback.
-  __syncthreads();
+  // Writeback to memory.
   if (g_tx <= tlen && g_ty <= qlen)
     score_mat[mat_w * g_ty + g_tx] = s_score_mat[l_ty][l_tx];
 }

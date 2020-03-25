@@ -1,11 +1,18 @@
-gpu_nw: nw.cu
-	nvcc nw.cu -o gpu_nw
+CC        = g++
+NVCC      = nvcc
+BASE_MAIN = nw.cpp
+BASE_DEPS = nw.cpp nw_general.h
+CUDA_MAIN = nw.cu
+CUDA_DEPS = nw.cu nw_general.h nw_scoring_stride.cuh
 
-base_nw: base_nw_o
-	g++ -o base_nw nw.o
+gpu_nw: $(CUDA_DEPS)
+	$(NVCC) $(CUDA_MAIN) -o $@.o
 
-base_nw_o: nw.cpp
-	g++ -c nw.cpp
+base_nw: $(BASE_DEPS)
+	$(CC) $(BASE_MAIN) -o $@.o
+
+gpu_nw_debug: $(CUDA_DEPS)
+	$(NVCC) -G -g $(CUDA_MAIN) -o $@.o
 
 clean:
-	rm -rf *.o base_nw gpu_nw
+	rm -rf *.o

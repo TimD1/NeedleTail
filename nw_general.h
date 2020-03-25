@@ -1,3 +1,6 @@
+#ifndef NW_GENERAL_H
+#define NW_GENERAL_H
+
 #include <bits/stdc++.h>
 #include <stdio.h>
 #include <sstream>
@@ -8,9 +11,8 @@
 #include "cuda.h"
 #include "cuda_runtime.h"
 
-#define NUM_TEST_FILES 1
+#define NUM_TEST_FILES 3
 #define GAP_SCORE -1
-#define BLOCK_X_Y_DIM 32
 
 __constant__ signed char c_s[16];
 
@@ -95,3 +97,5 @@ void nw_backtrack(
   std::cout << t_algn << std::endl;
   std::cout << q_algn << std::endl;
 }
+
+#endif

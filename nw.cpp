@@ -38,7 +38,14 @@ signed char nw_get_sim(signed char * s, char Ai, char Bi) {
   return s[base_to_val(Ai) * 4 + base_to_val(Bi)];
 }
 
-int ** nw_scoring(signed char * s, char * t, char * q, uint32_t tlen, uint32_t qlen, signed char mis_or_ind) {
+int ** nw_scoring(
+  signed char * s,
+  char * t,
+  char * q,
+  uint32_t tlen,
+  uint32_t qlen,
+  signed char mis_or_ind
+) {
   int ** mat = new int * [qlen + 1];
   for(uint32_t i = 0; i < qlen + 1; ++i)
     mat[i] = new int[tlen + 1];
@@ -47,7 +54,6 @@ int ** nw_scoring(signed char * s, char * t, char * q, uint32_t tlen, uint32_t q
     mat[i][0] = mis_or_ind * i;
   for (uint32_t i = 1; i <= tlen; ++i)
     mat[0][i] = mis_or_ind * i;
-
   for (uint32_t i = 1; i <= qlen; ++i) {
     for (uint32_t j = 1; j <= tlen; ++j) {
       int match = mat[i-1][j-1] + nw_get_sim(s, q[i-1], t[j-1]);
@@ -61,7 +67,15 @@ int ** nw_scoring(signed char * s, char * t, char * q, uint32_t tlen, uint32_t q
   return mat;
 }
 
-void nw_backtrack(int ** mat, signed char * s, char * t, char * q, uint32_t tlen, uint32_t qlen, signed char mis_or_ind) {
+void nw_backtrack(
+  int ** mat,
+  signed char * s,
+  char * t,
+  char * q,
+  uint32_t tlen,
+  uint32_t qlen,
+  signed char mis_or_ind
+) {
   std::string t_algn = "";
   std::string q_algn = "";
   uint32_t j = tlen;

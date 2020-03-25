@@ -7,15 +7,9 @@
 #include "cuda.h"
 #include "cuda_runtime.h"
 
-#define NUM_TEST_FILES 2
+#define NUM_TEST_FILES 1
 #define GAP_SCORE -1
 #define BLOCK_X_Y_DIM 32
-
-__constant__ signed char c_s[16];
-__constant__ uint32_t    c_qlen;
-__constant__ uint32_t    c_tlen;
-__constant__ signed char c_mis_or_ind;
-__constant__ uint32_t    c_mat_w;
 
 __device__ signed char base_to_val(char B) {
   // Assume 'A' unless proven otherwise.
@@ -33,42 +27,62 @@ __device__ signed char nw_get_sim(signed char * s, char Ai, char Bi) {
   return s[base_to_val(Ai) * 4 + base_to_val(Bi)];
 }
 
-__global__ void nw_scoring_kernel (
+// Call this kernel "qlen + tlen - 1" times, then matrix will be done.
+__global__ void nw_shotgun_scoring_kernel(
+  signed char * s,
   char * t,
   char * q,
+  uint32_t tlen,
+  uint32_t qlen,
+  signed char mis_or_ind,
   int * score_mat
 ) {
-  // Get thread index.
-  int32_t tx = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int32_t ty = (blockIdx.y * blockDim.y) + threadIdx.y;
-  // Prepare score matrix.
-  if (tx == 0 && ty == 0)
-    score_mat[0] = 0;
-  if (tx == 0 && ty > 0 && ty <= c_qlen)
-    score_mat[c_mat_w * tx + ty] = ty * c_mis_or_ind;
-  if (ty == 0 && tx > 0 && tx <= c_tlen)
-    score_mat[c_mat_w * tx + ty] = tx * c_mis_or_ind;
-  // Prepare DP loop variables.
-  int match = 0;
-  int del = 0;
-  int ins = 0;
-  int cell = 0;
-  // DP compute loop.
-  for (uint32_t i = 0; i < c_qlen + c_tlen - 1; ++i) {
-    __syncthreads();
-    if (tx > 0 && ty > 0 && tx + ty == 2 + i) {
-      match = score_mat[c_mat_w * (tx - 1) + (ty - 1)] + nw_get_sim(c_s, q[ty - 1], t[tx - 1]);
-      del = score_mat[c_mat_w * (tx - 1) + ty] + c_mis_or_ind;
-      ins = score_mat[c_mat_w * tx + (ty - 1)] + c_mis_or_ind;
-      cell = match > del ? match : del;
-      cell = cell > ins ? cell : ins;
-      score_mat[c_mat_w * tx + ty] = cell;
-    }
+  // Get global and local thread index.
+  int32_t g_tx = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int32_t g_ty = (blockIdx.y * blockDim.y) + threadIdx.y;
+  int32_t l_tx = threadIdx.x;
+  int32_t l_ty = threadIdx.y;
+
+  // Matrix dims.
+  int32_t mat_w = tlen + 1;
+
+  // Shared memory.
+  __shared__ signed char s_s[16];
+  __shared__ int s_score_mat[32][32];
+  __shared__ char s_t[16];
+  __shared__ char s_q[16];
+
+  // Fill similarity matrix shared memory.
+  if (l_ty == 0 && l_tx < 16)
+    s_s[l_tx] = s[l_tx];
+
+  // Fill score matrix shared memory.
+  s_score_mat[l_ty][l_tx] = 0;
+  if (g_tx > 0 && g_tx <= tlen && g_ty > 0 && g_ty <= qlen)
+    s_score_mat[l_ty][l_tx] = score_mat[mat_w * g_ty + g_tx];
+
+  // Fill target/query shared memory.
+  if (g_tx > 0 && g_tx <= tlen && g_ty > 0 && g_ty <= qlen) {
+    s_t[l_tx - 1] = t[g_tx - 1];
+    s_q[l_ty - 1] = q[g_ty - 1];
+  }
+
+  // Ensure shared memory is filled before going on.
+  __syncthreads();
+
+  // If we are not a border thread then shotgun
+  // compute the matrix, be it correct or not.
+  if (g_tx > 0 && g_ty > 0) {
+    int match = s_score_mat[l_ty - 1][l_tx - 1] + nw_get_sim(s_s, s_q[l_ty], s_t[l_tx]);
+    int del = s_score_mat[l_ty - 1][l_tx] + mis_or_ind;
+    int ins = s_score_mat[l_ty][l_tx - 1] + mis_or_ind;
+    int cell = match > del ? match : del;
+    cell = cell > ins ? cell : ins;
+    s_score_mat[l_ty][l_tx] = cell;
   }
   __syncthreads();
-  if (tx == 0 && ty == 0) {
-    for (int i = 0; i < (c_qlen + 1) * (c_tlen + 1); ++i)
-      printf("%d\n", score_mat[i]);
+  if (g_tx <= tlen && g_ty <= qlen) {
+    score_mat[mat_w * g_ty + g_tx] = s_score_mat[l_ty][l_tx];
   }
 }
 
@@ -81,36 +95,43 @@ void nw_gpu_man(
   signed char mis_or_ind
 ) {
   // Device memory pointers.
+  signed char * s_d;
   char * t_d;
   char * q_d;
   int * score_mat_d;
 
-  // Constants.
-  uint32_t mat_w = tlen + 1;
-
   // Malloc space on GPU.
+  cudaMalloc((void **) & s_d, 16 * sizeof(signed char));
   cudaMalloc((void **) & t_d, tlen * sizeof(char));
   cudaMalloc((void **) & q_d, qlen * sizeof(char));
-  cudaMalloc((void **) & score_mat_d, (qlen+1) * (tlen+1) * sizeof(int));
+  cudaMalloc((void **) & score_mat_d, (qlen + 1) * (tlen + 1) * sizeof(int));
 
   // Copy to GPU.
-  cudaMemcpyToSymbol(c_s, s, 16 * sizeof(signed char));
-  cudaMemcpyToSymbol(c_tlen, &tlen, sizeof(uint32_t));
-  cudaMemcpyToSymbol(c_qlen, &qlen, sizeof(uint32_t));
-  cudaMemcpyToSymbol(c_mat_w, &mat_w, sizeof(uint32_t));
-  cudaMemcpyToSymbol(c_mis_or_ind, &mis_or_ind, sizeof(signed char));
+  cudaMemcpy(s_d, s, 16 * sizeof(signed char), cudaMemcpyHostToDevice);
   cudaMemcpy(t_d, t, tlen * sizeof(char), cudaMemcpyHostToDevice);
   cudaMemcpy(q_d, q, qlen * sizeof(char), cudaMemcpyHostToDevice);
 
   // Launch compute kernel.
-  dim3 GridDim(ceil((tlen + 1) / ((float) BLOCK_X_Y_DIM)), ceil((qlen + 1) / ((float) BLOCK_X_Y_DIM)), 1);
-  dim3 BlockDim(BLOCK_X_Y_DIM, BLOCK_X_Y_DIM, 1);
-  nw_scoring_kernel <<<GridDim, BlockDim>>> (t_d, q_d, score_mat_d);
-  cudaDeviceSynchronize();
+  dim3 GridDim(ceil((tlen + 1) / ((float) 32)), ceil((qlen + 1) / ((float) 32)), 1);
+  dim3 BlockDim(32, 32, 1);
 
+  for (uint32_t i = 0; i < qlen + tlen - 1; ++i) {
+    nw_shotgun_scoring_kernel <<<GridDim, BlockDim>>>
+      (s_d, t_d, q_d, tlen, qlen, mis_or_ind, score_mat_d);
+    cudaDeviceSynchronize();
+  }
+
+  // TEMP! Just testing.
+  int * score_mat = new int [(qlen + 1) * (tlen + 1)];
+  cudaMemcpy(score_mat, score_mat_d, (qlen + 1) * (tlen + 1) * sizeof(int), cudaMemcpyDeviceToHost);
+  for (int i = 0; i <= qlen; ++i) {
+    for (int j = 0; j <= tlen; ++j)
+      std::cout << score_mat[(qlen + 1) * i + j] << std::endl;
+  }
   std::cout << "BATCH DONE" << std::endl;
 
   // Clean up.
+  cudaFree(s_d);
   cudaFree(t_d);
   cudaFree(q_d);
   cudaFree(score_mat_d);

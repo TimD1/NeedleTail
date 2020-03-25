@@ -70,13 +70,13 @@ int * nw_gpu_man(
   int * score_mat_d;
 
   // Malloc space on GPU.
-  cudaMalloc((void **) & t_d, tlen * sizeof(char));
-  cudaMalloc((void **) & q_d, qlen * sizeof(char));
-  cudaMalloc((void **) & score_mat_d, (qlen + 1) * (tlen + 1) * sizeof(int));
+  cuda_error_check( cudaMalloc((void **) & t_d, tlen * sizeof(char)) );
+  cuda_error_check( cudaMalloc((void **) & q_d, qlen * sizeof(char)) );
+  cuda_error_check( cudaMalloc((void **) & score_mat_d, (qlen + 1) * (tlen + 1) * sizeof(int)) );
 
   // Copy to GPU.
-  cudaMemcpy(t_d, t, tlen * sizeof(char), cudaMemcpyHostToDevice);
-  cudaMemcpy(q_d, q, qlen * sizeof(char), cudaMemcpyHostToDevice);
+  cuda_error_check( cudaMemcpy(t_d, t, tlen * sizeof(char), cudaMemcpyHostToDevice) );
+  cuda_error_check( cudaMemcpy(q_d, q, qlen * sizeof(char), cudaMemcpyHostToDevice) );
 
   // Launch compute kernel.
   dim3 GridDim(ceil((tlen + 1) / ((float) 32)), ceil((qlen + 1) / ((float) 32)));
@@ -84,11 +84,12 @@ int * nw_gpu_man(
   for (uint32_t i = 0; i < qlen + tlen - 1; ++i) {
     nw_shotgun_scoring_kernel <<<GridDim, BlockDim>>>
       (t_d, q_d, tlen, qlen, mis_or_ind, score_mat_d);
+    cudaDeviceSynchronize();
   }
 
   // Capture computed matrix.
   int * score_mat = new int [(qlen + 1) * (tlen + 1)];
-  cudaMemcpy(score_mat, score_mat_d, (qlen + 1) * (tlen + 1) * sizeof(int), cudaMemcpyDeviceToHost);
+  cuda_error_check( cudaMemcpy(score_mat, score_mat_d, (qlen + 1) * (tlen + 1) * sizeof(int), cudaMemcpyDeviceToHost) );
 
   // // TEMP: UNCOMMENT FOR MATRIX PRINTING!
   // for (int i = 0; i <= qlen; ++i) {

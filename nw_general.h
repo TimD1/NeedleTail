@@ -61,6 +61,13 @@ __device__ signed char cuda_nw_get_sim(char Ai, char Bi) {
   return c_s[cuda_base_to_val(Ai) * 4 + cuda_base_to_val(Bi)];
 }
 
+void cuda_error_check(cudaError_t e) {
+ if (e != cudaSuccess) {
+   std::cerr << "CUDA FAILURE: " << cudaGetErrorString(e) << std::endl;
+   exit(0);
+ }
+}
+
 void nw_backtrack(
   int * mat,
   signed char * s,

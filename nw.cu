@@ -50,9 +50,6 @@ __global__ void nw_scoring_kernel (
   if (ty == 0 && tx > 0 && tx <= tlen)
     score_mat[c_mat_w * tx + ty] = tx * c_mis_or_ind;
   // Prepare DP loop variables.
-  bool q_done = false;
-  bool t_done = false;
-  uint32_t w_stride = 0;
   int match = 0;
   int del = 0;
   int ins = 0;

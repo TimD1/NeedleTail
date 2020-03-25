@@ -64,6 +64,14 @@ int ** nw_scoring(
       mat[i][j] = cell;
     }
   }
+
+  for (int i = 0; i < qlen + 1; ++i) {
+    for (int j = 0; j < tlen + 1; ++j) {
+      printf("%d\n", mat[i][j]);
+    }
+  }
+  printf("BATCH DONE\n");
+
   return mat;
 }
 
@@ -139,7 +147,7 @@ int main() {
       ++test_cnt;
     }
     int ** nw_score_mat = nw_scoring(s, t, q, tlen, qlen, GAP_SCORE);
-    nw_backtrack(nw_score_mat, s, t, q, tlen, qlen, GAP_SCORE);
+    // nw_backtrack(nw_score_mat, s, t, q, tlen, qlen, GAP_SCORE);
     for(int i = 0; i < qlen + 1; ++i)
       delete [] nw_score_mat[i];
     delete [] nw_score_mat;

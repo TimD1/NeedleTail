@@ -5,7 +5,7 @@
 #include <fstream>
 #include <iostream>
 
-#define NUM_TEST_FILES 2
+#define NUM_TEST_FILES 1
 #define GAP_SCORE -1
 
 // Example similarity matrix.
@@ -65,12 +65,13 @@ int ** nw_scoring(
     }
   }
 
-  for (int i = 0; i < qlen + 1; ++i) {
-    for (int j = 0; j < tlen + 1; ++j) {
-      printf("%d\n", mat[i][j]);
-    }
-  }
-  printf("BATCH DONE\n");
+  // // TEMP: UNCOMMENT FOR MATRIX PRINTING!
+  // for (int i = 0; i <= qlen; ++i) {
+  //   for (int j = 0; j <= tlen; ++j)
+  //     std::cout << std::setfill(' ') << std::setw(5)
+  //       << mat[i][j] << " ";
+  //   std::cout << std::endl;
+  // }
 
   return mat;
 }
@@ -147,7 +148,9 @@ int main() {
       ++test_cnt;
     }
     int ** nw_score_mat = nw_scoring(s, t, q, tlen, qlen, GAP_SCORE);
+
     // nw_backtrack(nw_score_mat, s, t, q, tlen, qlen, GAP_SCORE);
+
     for(int i = 0; i < qlen + 1; ++i)
       delete [] nw_score_mat[i];
     delete [] nw_score_mat;

@@ -1,33 +1,4 @@
-#include <bits/stdc++.h>
-#include <stdio.h>
-#include <sstream>
-#include <string>
-#include <fstream>
-#include <iostream>
-#include "cuda.h"
-#include "cuda_runtime.h"
-
-#define NUM_TEST_FILES 1
-#define GAP_SCORE -1
-#define BLOCK_X_Y_DIM 32
-
-__constant__ signed char c_s[16];
-
-__device__ signed char base_to_val(char B) {
-  // Assume 'A' unless proven otherwise.
-  signed char ret = 0;
-  if (B == 'G')
-    ret = 1;
-  if (B == 'C')
-    ret = 2;
-  if (B == 'T')
-    ret = 3;
-  return ret;
-}
-
-__device__ signed char nw_get_sim(char Ai, char Bi) {
-  return c_s[base_to_val(Ai) * 4 + base_to_val(Bi)];
-}
+#include "nw_general.h"
 
 // Call this kernel "qlen + tlen - 1" times, then matrix will be done.
 __global__ void nw_shotgun_scoring_kernel(
@@ -72,7 +43,7 @@ __global__ void nw_shotgun_scoring_kernel(
   // If we are not a border thread then shotgun
   // compute the matrix, be it correct or not.
   if (g_tx > 0 && g_tx <= tlen && g_ty > 0 && g_ty <= qlen) {
-    int match = s_score_mat[l_ty - 1][l_tx - 1] + nw_get_sim(s_q[l_ty - 1], s_t[l_tx - 1]);
+    int match = s_score_mat[l_ty - 1][l_tx - 1] + cuda_nw_get_sim(s_q[l_ty - 1], s_t[l_tx - 1]);
     int del = s_score_mat[l_ty - 1][l_tx] + mis_or_ind;
     int ins = s_score_mat[l_ty][l_tx - 1] + mis_or_ind;
     int cell = match > del ? match : del;
@@ -86,7 +57,7 @@ __global__ void nw_shotgun_scoring_kernel(
     score_mat[mat_w * g_ty + g_tx] = s_score_mat[l_ty][l_tx];
 }
 
-void nw_gpu_man(
+int * nw_gpu_man(
   char * t,
   char * q,
   uint32_t tlen,
@@ -115,9 +86,11 @@ void nw_gpu_man(
       (t_d, q_d, tlen, qlen, mis_or_ind, score_mat_d);
   }
 
+  // Capture computed matrix.
+  int * score_mat = new int [(qlen + 1) * (tlen + 1)];
+  cudaMemcpy(score_mat, score_mat_d, (qlen + 1) * (tlen + 1) * sizeof(int), cudaMemcpyDeviceToHost);
+
   // // TEMP: UNCOMMENT FOR MATRIX PRINTING!
-  // int * score_mat = new int [(qlen + 1) * (tlen + 1)];
-  // cudaMemcpy(score_mat, score_mat_d, (qlen + 1) * (tlen + 1) * sizeof(int), cudaMemcpyDeviceToHost);
   // for (int i = 0; i <= qlen; ++i) {
   //   for (int j = 0; j <= tlen; ++j)
   //     std::cout << std::setfill(' ') << std::setw(5)
@@ -129,15 +102,19 @@ void nw_gpu_man(
   cudaFree(t_d);
   cudaFree(q_d);
   cudaFree(score_mat_d);
+
+  return score_mat;
 }
 
 int main() {
+  // Input variables.
   std::string input_line;
   uint32_t tlen = 0;
   uint32_t qlen = 0;
   char * t = NULL;
   char * q = NULL;
   signed char * s = NULL;
+
   // Read in similarity matrix file.
   std::string sim_file = "datasets/similarity.txt";
   std::ifstream sim_file_stream(sim_file);
@@ -149,6 +126,12 @@ int main() {
   }
   // Write similarity matrix to constant CUDA memory.
   cudaMemcpyToSymbol(c_s, s, 16 * sizeof(signed char));
+
+  // Prepare our time recording.
+  auto start = std::chrono::high_resolution_clock::now();
+  auto finish = std::chrono::high_resolution_clock::now();
+  auto runtime = std::chrono::duration_cast<std::chrono::microseconds>(finish - start);
+
   // Run through test file.
   for (uint32_t i = 0; i < NUM_TEST_FILES; ++i) {
     std::string test_file = "datasets/" + std::to_string(i) + ".txt";
@@ -169,10 +152,25 @@ int main() {
         strcpy(q, input_line.c_str());
       ++test_cnt;
     }
-    nw_gpu_man(t, q, tlen, qlen, GAP_SCORE);
+
+    // Run matrix computation and time runtime.
+    start = std::chrono::high_resolution_clock::now();
+    int * nw_score_mat = nw_gpu_man(t, q, tlen, qlen, GAP_SCORE);
+    finish = std::chrono::high_resolution_clock::now();
+    runtime += std::chrono::duration_cast<std::chrono::microseconds>(finish - start);
+
+    // Backtrack through matrix.
+    nw_backtrack(nw_score_mat, s, t, q, tlen, qlen, GAP_SCORE);
+
+    // Clean up memory.
+    delete [] nw_score_mat;
     delete [] q;
     delete [] t;
   }
+
+  // Clean up similarity matrix memory.
   delete [] s;
+  // Print out runtime and kill program.
+  std::cerr << "Para Runtime: " << runtime.count() << " us" << std::endl;
   return 0;
 }

@@ -10,8 +10,23 @@ void cuda_error_check(cudaError_t e) {
   }
 }
 
-// Call this kernel "qlen + tlen - 1" times, then matrix will be done.
+__global__ void nw_scoring_stride_init(
+  uint32_t tlen,
+  uint32_t qlen,
+  signed char mis_or_ind,
+  int * score_mat
+) {
+  int32_t tx = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int32_t ty = (blockIdx.y * blockDim.y) + threadIdx.y;
+  int32_t mat_w = tlen + 1;
+  if (ty == 0 && tx <= tlen)
+    score_mat[mat_w * ty + tx] = tx * mis_or_ind;
+  if (tx == 0 && ty <= qlen)
+    score_mat[mat_w * ty + tx] = ty * mis_or_ind;
+}
+
 __global__ void nw_scoring_stride_kernel(
+  uint32_t wave_it,
   char * t,
   char * q,
   uint32_t tlen,
@@ -19,16 +34,17 @@ __global__ void nw_scoring_stride_kernel(
   signed char mis_or_ind,
   int * score_mat
 ) {
-  // Get global and local thread index.
-  int32_t g_tx = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int32_t g_ty = (blockIdx.y * blockDim.y) + threadIdx.y;
-
-  // Matrix dims.
+  int32_t tx = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int32_t ty = (blockIdx.y * blockDim.y) + threadIdx.y;
   int32_t mat_w = tlen + 1;
-
-  // Write all zeros to the output.
-  if (g_tx <= tlen && g_ty <= qlen)
-    score_mat[mat_w * g_ty + g_tx] = 0;
+  if (tx > 0 && ty > 0 && tx + ty == 2 + wave_it) {
+    int match = score_mat[mat_w * (ty - 1) + (tx - 1)] + cuda_nw_get_sim(q[ty - 1], t[tx - 1]);
+    int del = score_mat[mat_w * (ty - 1) + tx] + mis_or_ind;
+    int ins = score_mat[mat_w * ty + (tx - 1)] + mis_or_ind;
+    int cell = match > del ? match : del;
+    cell = cell > ins ? cell : ins;
+    score_mat[mat_w * ty + tx] = cell;
+  }
 }
 
 int * nw_scoring_stride_man(
@@ -55,9 +71,15 @@ int * nw_scoring_stride_man(
   // Launch compute kernel.
   dim3 GridDim(ceil((tlen + 1) / ((float) 32)), ceil((qlen + 1) / ((float) 32)));
   dim3 BlockDim(32, 32);
-  nw_scoring_stride_kernel <<<GridDim, BlockDim>>>
-    (t_d, q_d, tlen, qlen, mis_or_ind, score_mat_d);
+  nw_scoring_stride_init <<<GridDim, BlockDim>>>
+    (tlen, qlen, mis_or_ind, score_mat_d);
   cudaDeviceSynchronize();
+
+  for (uint32_t wave_it = 0; wave_it < qlen + tlen - 1; ++wave_it) {
+    nw_scoring_stride_kernel <<<GridDim, BlockDim>>>
+      (wave_it, t_d, q_d, tlen, qlen, mis_or_ind, score_mat_d);
+    cudaDeviceSynchronize();
+  }
 
   // Capture computed matrix.
   int * score_mat = new int [(qlen + 1) * (tlen + 1)];

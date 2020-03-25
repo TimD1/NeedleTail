@@ -10,6 +10,7 @@
 #include <chrono>
 #include "cuda.h"
 #include "cuda_runtime.h"
+#include <cooperative_groups.h>
 
 #define NUM_TEST_FILES 3
 #define GAP_SCORE -1

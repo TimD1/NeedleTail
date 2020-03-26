@@ -38,23 +38,28 @@ __global__ void xs_t_geq_q_comp(
   int * score_mat
 ) {
   uint32_t tx = (blockIdx.x * blockDim.x) + threadIdx.x;
+  __shared__ int s_row_up[1025];
   // Only allow stuff in our compute width to do anything.
-  if (tx < comp_w) {
-    // Adjust our tx to correspond to
-    // its real position in the matrix.
-    uint32_t adj_tx = tx + x_off;
-    uint32_t mat_w = tlen + 1;
-    // Get the upper left cell, post transformation.
-    int match = score_mat[mat_w * (y_off - 2) + (adj_tx - 1)]
-      + cuda_nw_get_sim(q[y_off - adj_tx - 1], t[adj_tx - 1]);
-    // Get the upper cell, post transformation.
-    int del = score_mat[mat_w * (y_off - 1) + adj_tx] + mis_or_ind;
-    // Get the left cell, post transformation.
-    int ins = score_mat[mat_w * (y_off - 1) + (adj_tx - 1)] + mis_or_ind;
-    int cell = match > del ? match : del;
-    cell = cell > ins ? cell : ins;
-    score_mat[mat_w * y_off + adj_tx] = cell;
-  }
+  if (tx >= comp_w)
+    return;
+  // Adjust our tx to correspond to
+  // its real position in the matrix.
+  uint32_t adj_tx = tx + x_off;
+  uint32_t mat_w = tlen + 1;
+  // Fetch the needed elements in the row above this one.
+  s_row_up[tx] = score_mat[mat_w * (y_off - 1) + (adj_tx - 1)];
+  s_row_up[tx + 1] = score_mat[mat_w * (y_off - 1) + adj_tx];
+  s_row_up[tx + 1] = score_mat[mat_w * (y_off - 1) + adj_tx];
+  // Get the upper left cell, post transformation.
+  int match = score_mat[mat_w * (y_off - 2) + (adj_tx - 1)]
+    + cuda_nw_get_sim(q[y_off - adj_tx - 1], t[adj_tx - 1]);
+  // Get the upper cell, post transformation.
+  int del = s_row_up[tx + 1] + mis_or_ind;
+  // Get the left cell, post transformation.
+  int ins = s_row_up[tx] + mis_or_ind;
+  int cell = match > del ? match : del;
+  cell = cell > ins ? cell : ins;
+  score_mat[mat_w * y_off + adj_tx] = cell;
 }
 
 int * xs_t_geq_q_man(

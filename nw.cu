@@ -1,5 +1,5 @@
 #include "nw_general.h"
-#include "nw_scoring_stride.cuh"
+#include "xs.cuh"
 
 int main() {
   // Input variables.
@@ -50,7 +50,7 @@ int main() {
 
     // Run matrix computation and time runtime.
     start = std::chrono::high_resolution_clock::now();
-    int * nw_score_mat = nw_scoring_stride_man(t, q, tlen, qlen, GAP_SCORE);
+    int * nw_score_mat = xs_man(t, q, tlen, qlen, GAP_SCORE);
     finish = std::chrono::high_resolution_clock::now();
     runtime += std::chrono::duration_cast<std::chrono::microseconds>(finish - start);
 

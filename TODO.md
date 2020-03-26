@@ -1,1 +1,2 @@
-- If qlen >= 1088 (1024 + 64) xs_t_geq_q.cuh fails for some reason.
+# BUG LIST
+- None known.

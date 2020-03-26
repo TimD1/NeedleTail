@@ -19,8 +19,42 @@ __global__ void xs_t_geq_q_init(
   signed char mis_or_ind,
   int * score_mat
 ) {
-  int32_t tx = (blockIdx.x * blockDim.x) + threadIdx.x;
+  uint32_t tx = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (tx <= qlen + 1)
+    score_mat[(tlen + 1) * tx] = tx * mis_or_ind;
+  if (tx <= tlen + 1)
+    score_mat[(tlen + 1) * tx + tx] = tx * mis_or_ind;
+}
 
+__global__ void xs_t_geq_q_comp(
+  uint32_t y_off,
+  uint32_t x_off,
+  uint32_t comp_w,
+  char * t,
+  char * q,
+  uint32_t tlen,
+  uint32_t qlen,
+  signed char mis_or_ind,
+  int * score_mat
+) {
+  uint32_t tx = (blockIdx.x * blockDim.x) + threadIdx.x;
+  // Only allow stuff in our compute width to do anything.
+  if (tx < comp_w) {
+    // Adjust our tx to correspond to
+    // its real position in the matrix.
+    uint32_t adj_tx = tx + x_off;
+    uint32_t mat_w = tlen + 1;
+    // Get the upper left cell, post transformation.
+    int match = score_mat[mat_w * (y_off - 2) + (adj_tx - 1)]
+      + cuda_nw_get_sim(q[y_off - adj_tx - 1], t[adj_tx - 1]);
+    // Get the upper cell, post transformation.
+    int del = score_mat[mat_w * (y_off - 1) + adj_tx] + mis_or_ind;
+    // Get the left cell, post transformation.
+    int ins = score_mat[mat_w * (y_off - 1) + (adj_tx - 1)] + mis_or_ind;
+    int cell = match > del ? match : del;
+    cell = cell > ins ? cell : ins;
+    score_mat[mat_w * y_off + adj_tx] = cell;
+  }
 }
 
 int * xs_t_geq_q_man(
@@ -36,7 +70,7 @@ int * xs_t_geq_q_man(
   int * xf_mat_d;
 
   // Transformed matrix dims.
-  uint32_t xf_mat_w = (qlen + 1) < (tlen + 1) ? (qlen + 1) : (tlen + 1);
+  uint32_t xf_mat_w = tlen + 1;
   uint32_t xf_mat_h = qlen + tlen + 1;
 
   // Malloc space on GPU.
@@ -49,39 +83,59 @@ int * xs_t_geq_q_man(
   cuda_error_check( cudaMemcpy(q_d, q, qlen * sizeof(char), cudaMemcpyHostToDevice) );
 
   // Init our scoring matrix.
-  uint32_t num_threads = (qlen + 1) > (tlen + 1) ? (qlen + 1) : (tlen + 1);
-  dim3 init_g_dim(ceil(num_threads / ((float) 1024)))
+  uint32_t init_num_threads = tlen + 1;
+  dim3 init_g_dim(ceil(init_num_threads / ((float) 1024)));
   dim3 init_b_dim(1024);
-
-  nw_scoring_xform_init_kernel <<<init_g_dim, init_b_dim>>>
-    (tlen, qlen, mis_or_ind, score_mat_d);
+  xs_t_geq_q_init <<<init_g_dim, init_b_dim>>>
+    (tlen, qlen, mis_or_ind, xf_mat_d);
   cudaDeviceSynchronize();
 
+  // DP algorithm scoring.
+  uint32_t comp_num_threads = qlen;
+  dim3 comp_g_dim(ceil(comp_num_threads / ((float) 1024)));
+  dim3 comp_b_dim(1024);
 
-  // for (uint32_t wave_it = 0; wave_it < qlen + tlen - 1; ++wave_it) {
-  //   nw_scoring_stride_kernel <<<GridDim, BlockDim>>>
-  //     (wave_it, t_d, q_d, tlen, qlen, mis_or_ind, score_mat_d);
-  //   cudaDeviceSynchronize();
-  // }
+  uint32_t y_off = 2;
+  uint32_t x_off = 1;
+  uint32_t comp_w = 1;
+  bool w_hit_qlen = false;
+  for (uint32_t wave = 0; wave < qlen + tlen - 1; ++wave) {
+    // Launch kernel.
+    xs_t_geq_q_comp <<<comp_g_dim, comp_b_dim>>>
+      (y_off, x_off, comp_w, t_d, q_d, tlen, qlen, mis_or_ind, xf_mat_d);
+    // If we are going to go off the RHS of the matrix
+    // reduce the width of the compute region.
+    if (x_off + comp_w == tlen + 1)
+      --comp_w;
+    // Once we hit max band start to move
+    // diagonally across the matrix.
+    if (comp_w == qlen)
+      w_hit_qlen = true;
+    x_off += w_hit_qlen;
+    comp_w += !w_hit_qlen;
+    // Always move to the next row of the matrix.
+    ++y_off;
+    cudaDeviceSynchronize();
+  }
 
-  // // Capture computed matrix.
-  // int * score_mat = new int [(qlen + 1) * (tlen + 1)];
-  // cuda_error_check( cudaMemcpy(score_mat, score_mat_d, (qlen + 1) * (tlen + 1) * sizeof(int), cudaMemcpyDeviceToHost) );
+  int * xf_mat = new int [xf_mat_w * xf_mat_h];
+  cuda_error_check( cudaMemcpy(xf_mat, xf_mat_d, xf_mat_w * xf_mat_h * sizeof(int), cudaMemcpyDeviceToHost) );
 
   // // TEMP: UNCOMMENT FOR MATRIX PRINTING!
-  // for (int i = 0; i <= qlen; ++i) {
-  //   for (int j = 0; j <= tlen; ++j)
+  // for (uint32_t i = 0; i <= qlen; ++i) {
+  //   for (uint32_t j = 0; j <= tlen; ++j) {
   //     std::cout << std::setfill(' ') << std::setw(5)
-  //       << score_mat[(tlen + 1) * i + j] << " ";
+  //       << xf_mat[(tlen+1) * (i+j) + j] << " ";
+  //   }
   //   std::cout << std::endl;
   // }
 
   // Clean up.
   cudaFree(t_d);
   cudaFree(q_d);
-  cudaFree(score_mat_d);
+  cudaFree(xf_mat_d);
 
-  return score_mat;
+  return xf_mat;
 }
 
 #endif

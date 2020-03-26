@@ -2,6 +2,7 @@
 #define XS_CUH
 
 #include "nw_general.h"
+#include "xs_t_geq_q.cuh"
 
 int * xs_man(
   char * t,
@@ -13,5 +14,8 @@ int * xs_man(
   if (tlen >= qlen)
     return xs_t_geq_q_man(t, q, tlen, qlen, mis_or_ind);
   else
-    return xs_t_lt_q_man(t, q, tlen, qlen, mis_or_ind);
+    // return xs_t_lt_q_man(t, q, tlen, qlen, mis_or_ind);
+    return NULL;
 }
+
+#endif

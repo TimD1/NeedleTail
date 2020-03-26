@@ -25,13 +25,13 @@ int * nw_scoring(
     }
   }
 
-  // // TEMP: UNCOMMENT FOR MATRIX PRINTING!
-  // for (int i = 0; i <= qlen; ++i) {
-  //   for (int j = 0; j <= tlen; ++j)
-  //     std::cout << std::setfill(' ') << std::setw(5)
-  //       << mat[(tlen+1) * i + j] << " ";
-  //   std::cout << std::endl;
-  // }
+  // TEMP: UNCOMMENT FOR MATRIX PRINTING!
+  for (int i = 0; i <= qlen; ++i) {
+    for (int j = 0; j <= tlen; ++j)
+      std::cout << std::setfill(' ') << std::setw(5)
+        << mat[(tlen+1) * i + j] << " ";
+    std::cout << std::endl;
+  }
 
   return mat;
 }

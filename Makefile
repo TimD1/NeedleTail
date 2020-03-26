@@ -3,7 +3,7 @@ NVCC      = nvcc
 BASE_MAIN = nw.cpp
 BASE_DEPS = nw.cpp nw_general.h
 CUDA_MAIN = nw.cu
-CUDA_DEPS = nw.cu nw_general.h xs.cuh xs_t_geq_q.ch xs_t_lt_q.cuh
+CUDA_DEPS = nw.cu nw_general.h xs.cuh xs_t_geq_q.cuh xs_t_lt_q.cuh
 
 gpu_nw: $(CUDA_DEPS)
 	$(NVCC) $(CUDA_MAIN) -o $@.o

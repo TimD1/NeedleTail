@@ -12,7 +12,7 @@
 #include "cuda_runtime.h"
 #include <cooperative_groups.h>
 
-#define NUM_TEST_FILES 5
+#define NUM_TEST_FILES 6
 #define GAP_SCORE -1
 
 __constant__ signed char c_s[16];

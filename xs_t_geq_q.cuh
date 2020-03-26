@@ -93,7 +93,6 @@ int * xs_t_geq_q_man(
   dim3 init_b_dim(1024);
   xs_t_geq_q_init <<<init_g_dim, init_b_dim>>>
     (tlen, qlen, mis_or_ind, xf_mat_d);
-  cudaDeviceSynchronize();
 
   // DP algorithm scoring.
   uint32_t comp_num_threads = qlen;
@@ -104,6 +103,7 @@ int * xs_t_geq_q_man(
   uint32_t x_off = 1;
   uint32_t comp_w = 1;
   bool w_hit_qlen = false;
+  cudaDeviceSynchronize();
   for (uint32_t wave = 0; wave < qlen + tlen - 1; ++wave) {
     // Launch kernel.
     xs_t_geq_q_comp <<<comp_g_dim, comp_b_dim>>>

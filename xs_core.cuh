@@ -3,7 +3,7 @@
 
 #include "nw_general.h"
 
-__global__ void xs_t_geq_q_init(
+__global__ void xs_core_init(
   uint32_t tlen,
   uint32_t qlen,
   signed char mis_or_ind,
@@ -29,7 +29,7 @@ __global__ void xs_t_geq_q_init(
     mat[g_tx] = g_tx * mis_or_ind;
 }
 
-__global__ void xs_t_geq_q_comp(
+__global__ void xs_core_comp(
   // Kernel management variables.
   bool wr_q_border_elt, // Do we need to write a border element for query?
   bool wr_t_border_elt, // Do we need to write a border element for target?
@@ -115,7 +115,7 @@ int * xs_t_geq_q_man(
   uint32_t init_num_threads = (tlen + 1) > (qlen + 1) ? (tlen + 1) : (qlen + 1);
   dim3 init_g_dim(ceil(init_num_threads / ((float) 1024)));
   dim3 init_b_dim(1024);
-  xs_t_geq_q_init <<<init_g_dim, init_b_dim, 0, *stream>>>
+  xs_core_init <<<init_g_dim, init_b_dim, 0, *stream>>>
     (tlen, qlen, mis_or_ind, xf_mat_row0_d, xf_mat_row1_d, mat_d);
 
   // Run our matrix scoring algorithm.
@@ -147,7 +147,7 @@ int * xs_t_geq_q_man(
     ++comp_y_off;
 
     // Launch our kernel.
-    xs_t_geq_q_comp <<<comp_g_dim, comp_b_dim, 1025 * sizeof(int), *stream>>>
+    xs_core_comp <<<comp_g_dim, comp_b_dim, 1025 * sizeof(int), *stream>>>
       (wr_q_border_elt, wr_t_border_elt, comp_w,
         comp_x_off, comp_y_off, wave_itr, t_d, q_d,
           tlen, qlen, mis_or_ind, xf_mat_row0_d,

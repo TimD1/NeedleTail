@@ -1,5 +1,5 @@
-#ifndef XS_T_GEQ_Q_CUH
-#define XS_T_GEQ_Q_CUH
+#ifndef XS_T_GEQ_Q_OPT_CUH
+#define XS_T_GEQ_Q_OPT_CUH
 
 #include "nw_general.h"
 #include "cuda_error_check.cuh"
@@ -7,7 +7,7 @@
 // NOTE: XS_T_GEQ_Q => Transformation scoring
 // where tlen greater than or equal to qlen.
 
-__global__ void xs_t_geq_q_init(
+__global__ void xs_t_geq_q_init_opt(
   uint32_t tlen,
   uint32_t qlen,
   signed char mis_or_ind,
@@ -20,7 +20,7 @@ __global__ void xs_t_geq_q_init(
     score_mat[(tlen + 1) * tx + tx] = tx * mis_or_ind;
 }
 
-__global__ void xs_t_geq_q_comp(
+__global__ void xs_t_geq_q_comp_opt(
   uint32_t y_off,
   uint32_t x_off,
   uint32_t comp_w,
@@ -57,7 +57,7 @@ __global__ void xs_t_geq_q_comp(
   score_mat[mat_w * y_off + adj_tx] = cell;
 }
 
-int * xs_t_geq_q_man(
+int * xs_t_geq_q_man_opt(
   char * t,
   char * q,
   uint32_t tlen,
@@ -86,7 +86,7 @@ int * xs_t_geq_q_man(
   uint32_t init_num_threads = tlen + 1;
   dim3 init_g_dim(ceil(init_num_threads / ((float) 1024)));
   dim3 init_b_dim(1024);
-  xs_t_geq_q_init <<<init_g_dim, init_b_dim>>>
+  xs_t_geq_q_init_opt <<<init_g_dim, init_b_dim>>>
     (tlen, qlen, mis_or_ind, xf_mat_d);
 
   // DP algorithm scoring.
@@ -101,7 +101,7 @@ int * xs_t_geq_q_man(
   cudaDeviceSynchronize();
   for (uint32_t wave = 0; wave < qlen + tlen - 1; ++wave) {
     // Launch kernel.
-    xs_t_geq_q_comp <<<comp_g_dim, comp_b_dim>>>
+    xs_t_geq_q_comp_opt <<<comp_g_dim, comp_b_dim>>>
       (y_off, x_off, comp_w, t_d, q_d, tlen, qlen, mis_or_ind, xf_mat_d);
     // If we are going to go off the RHS of the matrix
     // reduce the width of the compute region.

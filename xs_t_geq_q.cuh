@@ -2,7 +2,6 @@
 #define XS_T_GEQ_Q_CUH
 
 #include "nw_general.h"
-#include "cuda_error_check.cuh"
 
 // NOTE: XS_T_GEQ_Q => Transformation scoring
 // where tlen greater than or equal to qlen.
@@ -111,8 +110,8 @@ int * xs_t_geq_q_man(
   char * q_d = t_d + tlen;
 
   // Copy our target and query to the GPU.
-  cuda_error_check( cudaMemcpyAsync(t_d, t, tlen * sizeof(char), cudaMemcpyHostToDevice, *stream) );
-  cuda_error_check( cudaMemcpyAsync(q_d, q, qlen * sizeof(char), cudaMemcpyHostToDevice, *stream) );
+  cudaMemcpyAsync(t_d, t, tlen * sizeof(char), cudaMemcpyHostToDevice, *stream);
+  cudaMemcpyAsync(q_d, q, qlen * sizeof(char), cudaMemcpyHostToDevice, *stream);
 
   // Prepare the first 2 rows of our transformed compute matrix,
   // and the border elements for our untranformed matrix.
@@ -175,7 +174,7 @@ int * xs_t_geq_q_man(
 
   // Copy back our untransformed matrix to the host.
   int * mat = new int [(tlen + 1) * (qlen + 1)];
-  cuda_error_check( cudaMemcpyAsync(mat, mat_d, (tlen + 1) * (qlen + 1) * sizeof(int), cudaMemcpyDeviceToHost, *stream) );
+  cudaMemcpyAsync(mat, mat_d, (tlen + 1) * (qlen + 1) * sizeof(int), cudaMemcpyDeviceToHost, *stream);
   return mat;
 }
 

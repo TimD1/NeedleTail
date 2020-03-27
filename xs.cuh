@@ -3,6 +3,7 @@
 
 #include "nw_general.h"
 #include "xs_t_geq_q.cuh"
+#include "cuda_error_check.cuh"
 
 int * xs_man(
   char * t,

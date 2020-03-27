@@ -99,9 +99,10 @@ int * xs_t_geq_q_man(
   // Maintain a sliding window of 3 rows of our transformed matrix.
   // This is useful because with the transformation matrix we get
   // complete memory coalescing on both reads and writes.
-  int * xf_mat_row0_d;
-  int * xf_mat_row1_d;
-  int * xf_mat_row2_d;
+  int * xf_mat_row_temp = NULL;
+  int * xf_mat_row0_d = NULL;
+  int * xf_mat_row1_d = NULL;
+  int * xf_mat_row2_d = NULL;
 
   // Maintain a full untransformed matrix for PCIe transfer after
   // compute is done. This min/maxes our memory utilization.
@@ -114,6 +115,7 @@ int * xs_t_geq_q_man(
   // Malloc 3 rows for our sliding window.
   cuda_error_check( cudaMalloc((void **) & xf_mat_row0_d, (tlen + 1) * sizeof(int)) );
   cuda_error_check( cudaMalloc((void **) & xf_mat_row1_d, (tlen + 1) * sizeof(int)) );
+  cuda_error_check( cudaMalloc((void **) & xf_mat_row2_d, (tlen + 1) * sizeof(int)) );
 
   // Malloc an untransformed version of our matrix.
   cuda_error_check( cudaMalloc((void **) & mat_d, (tlen + 1) * (qlen + 1) * sizeof(int)) );
@@ -158,9 +160,6 @@ int * xs_t_geq_q_man(
     comp_x_off += (wave_itr + 2 > qlen + 1);
     ++comp_y_off;
 
-    // Malloc a row for the transformed matrix that we are going to write to.
-    cuda_error_check( cudaMalloc((void **) & xf_mat_row2_d, (tlen + 1) * sizeof(int)) );
-
     // Launch our kernel.
     xs_t_geq_q_comp <<<comp_g_dim, comp_b_dim>>>
       (wr_q_border_elt, wr_t_border_elt, comp_w,
@@ -178,9 +177,10 @@ int * xs_t_geq_q_man(
         max_comp_w_cnt == max_comp_w_cnt_max ? -1 : 0;
 
     // Slide our window in our compute matrix.
-    cudaFree(xf_mat_row0_d);
+    xf_mat_row_temp = xf_mat_row0_d;
     xf_mat_row0_d = xf_mat_row1_d;
     xf_mat_row1_d = xf_mat_row2_d;
+    xf_mat_row2_d = xf_mat_row_temp;
   }
 
   // Copy back our untransformed matrix to the host.
@@ -200,6 +200,7 @@ int * xs_t_geq_q_man(
   cudaFree(q_d);
   cudaFree(xf_mat_row0_d);
   cudaFree(xf_mat_row1_d);
+  cudaFree(xf_mat_row2_d);
   cudaFree(mat_d);
 
   return mat;

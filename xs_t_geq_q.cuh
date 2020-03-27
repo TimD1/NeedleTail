@@ -55,7 +55,8 @@ __global__ void xs_t_geq_q_comp(
   // Get the global and local thread index.
   uint32_t g_tx = (blockIdx.x * blockDim.x) + threadIdx.x;
   uint32_t l_tx = threadIdx.x;
-  __shared__ int s_row_up[1025];
+  extern __shared__ int smem[];
+  int * s_row_up = smem;
   // If we need to write a border element for our query.
   if (g_tx == 0 && wr_q_border_elt)
     xf_mat_row2[0] = (wave_itr + 2) * mis_or_ind;
@@ -64,13 +65,11 @@ __global__ void xs_t_geq_q_comp(
     xf_mat_row2[comp_x_off + comp_w] = (wave_itr + 2) * mis_or_ind;
   // If we are in the compute region.
   if (g_tx >= comp_x_off && g_tx < comp_x_off + comp_w) {
-
     // Fetch into shared memory.
     if (l_tx == 0 || g_tx == comp_x_off)
       s_row_up[l_tx] = xf_mat_row1[g_tx - 1];
     s_row_up[l_tx + 1] = xf_mat_row1[g_tx];
     __syncthreads();
-
     // Do the NW cell calculation.
     int match = xf_mat_row0[g_tx - 1]
       + cuda_nw_get_sim(q[comp_y_off - g_tx - 1], t[g_tx - 1]);
@@ -90,46 +89,37 @@ int * xs_t_geq_q_man(
   char * q,
   uint32_t tlen,
   uint32_t qlen,
-  signed char mis_or_ind
+  signed char mis_or_ind,
+  void * mem,
+  cudaStream_t * stream
 ) {
-  // Device memory pointers.
-  char * t_d;
-  char * q_d;
 
   // Maintain a sliding window of 3 rows of our transformed matrix.
   // This is useful because with the transformation matrix we get
   // complete memory coalescing on both reads and writes.
   int * xf_mat_row_temp = NULL;
-  int * xf_mat_row0_d = NULL;
-  int * xf_mat_row1_d = NULL;
-  int * xf_mat_row2_d = NULL;
+  int * xf_mat_row0_d = (int *) mem;
+  int * xf_mat_row1_d = xf_mat_row0_d + (tlen + 1);
+  int * xf_mat_row2_d = xf_mat_row1_d + (tlen + 1);
 
   // Maintain a full untransformed matrix for PCIe transfer after
   // compute is done. This min/maxes our memory utilization.
-  int * mat_d;
+  int * mat_d = xf_mat_row2_d + (tlen + 1);
 
-  // Malloc space on GPU for our target and query.
-  cuda_error_check( cudaMalloc((void **) & t_d, tlen * sizeof(char)) );
-  cuda_error_check( cudaMalloc((void **) & q_d, qlen * sizeof(char)) );
-
-  // Malloc 3 rows for our sliding window.
-  cuda_error_check( cudaMalloc((void **) & xf_mat_row0_d, (tlen + 1) * sizeof(int)) );
-  cuda_error_check( cudaMalloc((void **) & xf_mat_row1_d, (tlen + 1) * sizeof(int)) );
-  cuda_error_check( cudaMalloc((void **) & xf_mat_row2_d, (tlen + 1) * sizeof(int)) );
-
-  // Malloc an untransformed version of our matrix.
-  cuda_error_check( cudaMalloc((void **) & mat_d, (tlen + 1) * (qlen + 1) * sizeof(int)) );
+  // Pointers to target and query.
+  char * t_d = (char *) (mat_d + (tlen + 1) * (qlen + 1));
+  char * q_d = t_d + tlen;
 
   // Copy our target and query to the GPU.
-  cuda_error_check( cudaMemcpy(t_d, t, tlen * sizeof(char), cudaMemcpyHostToDevice) );
-  cuda_error_check( cudaMemcpy(q_d, q, qlen * sizeof(char), cudaMemcpyHostToDevice) );
+  cuda_error_check( cudaMemcpyAsync(t_d, t, tlen * sizeof(char), cudaMemcpyHostToDevice, *stream) );
+  cuda_error_check( cudaMemcpyAsync(q_d, q, qlen * sizeof(char), cudaMemcpyHostToDevice, *stream) );
 
   // Prepare the first 2 rows of our transformed compute matrix,
   // and the border elements for our untranformed matrix.
   uint32_t init_num_threads = (tlen + 1) > (qlen + 1) ? (tlen + 1) : (qlen + 1);
   dim3 init_g_dim(ceil(init_num_threads / ((float) 1024)));
   dim3 init_b_dim(1024);
-  xs_t_geq_q_init <<<init_g_dim, init_b_dim>>>
+  xs_t_geq_q_init <<<init_g_dim, init_b_dim, 0, *stream>>>
     (tlen, qlen, mis_or_ind, xf_mat_row0_d, xf_mat_row1_d, mat_d);
 
   // Run our matrix scoring algorithm.
@@ -161,7 +151,7 @@ int * xs_t_geq_q_man(
     ++comp_y_off;
 
     // Launch our kernel.
-    xs_t_geq_q_comp <<<comp_g_dim, comp_b_dim>>>
+    xs_t_geq_q_comp <<<comp_g_dim, comp_b_dim, 1025 * sizeof(int), *stream>>>
       (wr_q_border_elt, wr_t_border_elt, comp_w,
         comp_x_off, comp_y_off, wave_itr, t_d, q_d,
           tlen, qlen, mis_or_ind, xf_mat_row0_d,
@@ -185,24 +175,7 @@ int * xs_t_geq_q_man(
 
   // Copy back our untransformed matrix to the host.
   int * mat = new int [(tlen + 1) * (qlen + 1)];
-  cuda_error_check( cudaMemcpy(mat, mat_d, (tlen + 1) * (qlen + 1) * sizeof(int), cudaMemcpyDeviceToHost) );
-
-  // // TEMP: UNCOMMENT FOR MATRIX PRINTING!
-  // for (int i = 0; i <= qlen; ++i) {
-  //   for (int j = 0; j <= tlen; ++j)
-  //     std::cout << std::setfill(' ') << std::setw(5)
-  //       << mat[(tlen+1) * i + j] << " ";
-  //   std::cout << std::endl;
-  // }
-
-  // Clean up.
-  cudaFree(t_d);
-  cudaFree(q_d);
-  cudaFree(xf_mat_row0_d);
-  cudaFree(xf_mat_row1_d);
-  cudaFree(xf_mat_row2_d);
-  cudaFree(mat_d);
-
+  cuda_error_check( cudaMemcpyAsync(mat, mat_d, (tlen + 1) * (qlen + 1) * sizeof(int), cudaMemcpyDeviceToHost, *stream) );
   return mat;
 }
 

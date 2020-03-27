@@ -1,10 +1,7 @@
-#ifndef XS_T_GEQ_Q_CUH
-#define XS_T_GEQ_Q_CUH
+#ifndef XS_CORE_CUH
+#define XS_CORE_CUH
 
 #include "nw_general.h"
-
-// NOTE: XS_T_GEQ_Q => Transformation scoring
-// where tlen greater than or equal to qlen.
 
 __global__ void xs_t_geq_q_init(
   uint32_t tlen,

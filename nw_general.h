@@ -11,7 +11,7 @@
 #include "cuda.h"
 #include "cuda_runtime.h"
 
-#define NUM_TEST_FILES 6
+#define NUM_TEST_FILES 8
 #define GAP_SCORE -1
 
 __constant__ signed char c_s[16];

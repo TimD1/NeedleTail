@@ -36,7 +36,6 @@ __global__ void xs_core_comp(
   uint32_t comp_w,      // Number of matrix elements we are computing.
   uint32_t comp_x_off,  // What is our x-dimension offset for our compute region?
   uint32_t comp_y_off,  // What is our y-dimension offset for our compute region?
-  uint32_t wave_itr,    // Current wavefront iteration.
   // Variables regarding matrix computations.
   char * t,
   char * q,
@@ -55,10 +54,10 @@ __global__ void xs_core_comp(
   int * s_row_up = smem;
   // If we need to write a border element for our query.
   if (g_tx == 0 && wr_q_border_elt)
-    xf_mat_row2[0] = (wave_itr + 2) * mis_or_ind;
+    xf_mat_row2[0] = (comp_y_off) * mis_or_ind;
   // If we need to write a border element for our target.
   if (g_tx == 0 && wr_t_border_elt)
-    xf_mat_row2[comp_x_off + comp_w] = (wave_itr + 2) * mis_or_ind;
+    xf_mat_row2[comp_x_off + comp_w] = (comp_y_off) * mis_or_ind;
   // If we are in the compute region.
   if (g_tx >= comp_x_off && g_tx < comp_x_off + comp_w) {
     // Fetch into shared memory.
@@ -128,7 +127,6 @@ int * xs_t_geq_q_man(
   bool wr_t_border_elt = true;
   uint32_t comp_w = 0;
   uint32_t comp_x_off = 1;
-  uint32_t comp_y_off = 1;
   // Other variables to help manage the kernel manager variables...
   bool square_matrix = (qlen == tlen);
   uint32_t max_comp_w_cnt = 0;
@@ -138,18 +136,17 @@ int * xs_t_geq_q_man(
   uint32_t smallest_dim = tlen < qlen ? tlen : qlen;
   uint32_t max_comp_w_cnt_max = largest_dim - smallest_dim + 1;
   // Loop through every wavefront/diagonal.
-  for (uint32_t wave_itr = 0; wave_itr < qlen + tlen - 1; ++wave_itr) {
+  for (uint32_t comp_y_off = 2; comp_y_off < qlen + tlen + 1; ++comp_y_off) {
     // Update kernel management variables.
-    wr_q_border_elt = (wave_itr + 2 < qlen + 1);
-    wr_t_border_elt = (wave_itr + 2 < tlen + 1);
+    wr_q_border_elt = (comp_y_off < qlen + 1);
+    wr_t_border_elt = (comp_y_off < tlen + 1);
     comp_w += comp_w_increment;
-    comp_x_off += (wave_itr + 2 > qlen + 1);
-    ++comp_y_off;
+    comp_x_off += (comp_y_off > qlen + 1);
 
     // Launch our kernel.
     xs_core_comp <<<comp_g_dim, comp_b_dim, 1025 * sizeof(int), *stream>>>
       (wr_q_border_elt, wr_t_border_elt, comp_w,
-        comp_x_off, comp_y_off, wave_itr, t_d, q_d,
+        comp_x_off, comp_y_off, t_d, q_d,
           tlen, qlen, mis_or_ind, xf_mat_row0_d,
             xf_mat_row1_d, xf_mat_row2_d, mat_d);
 

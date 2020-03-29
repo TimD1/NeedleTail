@@ -7,12 +7,21 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <cmath>
 #include <chrono>
 #include "cuda.h"
 #include "cuda_runtime.h"
 
 #define NUM_TEST_FILES 8
 #define GAP_SCORE -1
+
+// 2-bit encoding for alignment matrix back-pointers
+#define PTR_BITS 2
+#define PTRS_PER_ELT 16
+#define MATCH 1
+#define DEL 2
+#define INS 3
+#define OOB -1
 
 __constant__ signed char c_s[16];
 
@@ -30,6 +39,16 @@ __constant__ signed char c_s[16];
 //  Q  G  ..........
 //     C  ..........
 //     T  ..........
+
+int get_ptr_val(uint32_t* ptr_mat, int i, int j, int h, int w) {
+	// Bounds checking
+	if( i < 0 || i >= h || j < 0 || j >= w)
+		return OOB;
+	uint32_t val = ptr_mat[int(i * ceil(w / float(PTRS_PER_ELT)) + j / PTRS_PER_ELT)];
+	uint32_t mask = pow(2, PTR_BITS) - 1;
+	int shift = PTR_BITS * (j % PTRS_PER_ELT);
+	return (val & (mask << shift)) >> shift;
+}
 
 signed char base_to_val(char B) {
   // Assume 'A' unless proven otherwise.
@@ -97,6 +116,100 @@ void nw_backtrack(
   }
   std::cout << t_algn << std::endl;
   std::cout << q_algn << std::endl;
+}
+
+// Pointer backtracking for standard 2D matrix.
+void nw_ptr_backtrack(
+  uint32_t * mat,
+  signed char * s,
+  char * t,
+  char * q,
+  uint32_t tlen,
+  uint32_t qlen,
+  signed char mis_or_ind
+) {
+  std::string t_algn = "";
+  std::string q_algn = "";
+  uint32_t j = tlen;
+  uint32_t i = qlen;
+  while (i > 0 || j > 0) {
+	  switch(get_ptr_val(mat, i, j, qlen+1, tlen+1)) {
+		  case MATCH:
+			  q_algn = q[i-1] + q_algn;
+			  t_algn = t[j-1] + t_algn;
+			  --i; --j;
+			  break;
+		  case INS:
+			  q_algn = q[i-1] + q_algn;
+			  t_algn = '-' + t_algn;
+			  --i;
+			  break;
+		  case DEL:
+			  q_algn = '-' + q_algn;
+			  t_algn = t[j-1] + t_algn;
+			  --j;
+			  break;
+		  case OOB:
+			std::cout << "ERROR, out of bounds!" << std::endl;
+			break;
+		  default:
+			std::cout << "ERROR, unexpected back-pointer value: ";
+			std::cout << get_ptr_val(mat, i, j, qlen+1, tlen+1) << std::endl;
+			break;
+	  }
+  }
+  std::cout << t_algn << std::endl;
+  std::cout << q_algn << std::endl << std::endl;
+}
+
+
+// Print backtracking pointer matrix
+void print_ptr_mat(
+  uint32_t * mat,
+  char * t,
+  char * q,
+  uint32_t tlen,
+  uint32_t qlen
+) {
+	std::cout << "tlen: " << tlen << std::endl;
+	std::cout << "qlen: " << qlen << std::endl;
+	std::cout << "template: ";
+	for (int i = 0; i < tlen; i++)
+		std::cout << t[i];
+	std::cout << std::endl;
+	std::cout << "query: ";
+	for (int i = 0; i < qlen; i++)
+		std::cout << q[i];
+	std::cout << std::endl;
+
+  for (int i = 0; i <= qlen+1; ++i) {
+    for (int j = 0; j <= tlen+1; ++j) {
+		if (i == 0) {
+		  if (j <= 1)
+			  std::cout << "." << " ";
+	      else
+			  std::cout << t[j-2] << " ";
+		}
+		else if (j == 0) {
+		  if (i == 1)
+			  std::cout << "." << " ";
+		  else
+			  std::cout << q[i-2] << " ";
+		}
+		else {
+			int mvmt = get_ptr_val(mat, i-1, j-1, qlen+1, tlen+1);
+			char c;
+			switch (mvmt) {
+				case INS: c = '^'; break;
+				case DEL: c = '<'; break;
+				case MATCH: c = '\\'; break;
+				default: c = 'X'; break;
+			}
+		    std::cout << c << " ";
+		}
+	}
+    std::cout << std::endl;
+  }
 }
 
 #endif

@@ -9,10 +9,21 @@ __global__ void xs_core_init(
   signed char mis_or_ind,
   int * xf_mat_row0,
   int * xf_mat_row1,
-  int * mat
+  uint32_t * mat
 ) {
   // Get the global thread index.
   uint32_t g_tx = (blockIdx.x * blockDim.x) + threadIdx.x;
+  // Initialize top row of backtrack matrix
+  if (g_tx < tlen + 1) {
+	int xidx = g_tx / PTRS_PER_ELT;
+	int xshift = PTR_BITS * (g_tx % PTRS_PER_ELT);
+    atomicOr(mat + xidx, DEL << xshift);
+  }
+  // Initialize left column of backtrack matrix
+  if (g_tx < qlen + 1) {
+	int elts_per_row = ceil((tlen+1) / float(PTRS_PER_ELT));
+    atomicOr(mat + g_tx*elts_per_row, INS);
+  }
   // Write 0 to the first cell of our transformed matrix row0.
   if (g_tx == 0)
     xf_mat_row0[0] = 0;
@@ -22,11 +33,6 @@ __global__ void xs_core_init(
     xf_mat_row1[0] = g_tx * mis_or_ind;
     xf_mat_row1[1] = g_tx * mis_or_ind;
   }
-  // Initialize the border elements of our untransformed matrix.
-  if (g_tx <= qlen)
-    mat[(tlen + 1) * g_tx] = g_tx * mis_or_ind;
-  if (g_tx <= tlen)
-    mat[g_tx] = g_tx * mis_or_ind;
 }
 
 __global__ void xs_core_comp(
@@ -45,7 +51,7 @@ __global__ void xs_core_comp(
   int * xf_mat_row0,
   int * xf_mat_row1,
   int * xf_mat_row2,
-  int * mat
+  uint32_t * mat
 ) {
   // Get the global and local thread index.
   uint32_t g_tx = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -68,18 +74,31 @@ __global__ void xs_core_comp(
     // Do the NW cell calculation.
     int match = xf_mat_row0[g_tx - 1]
       + cuda_nw_get_sim(q[comp_y_off - g_tx - 1], t[g_tx - 1]);
-    int del = s_row_up[l_tx + 1] + mis_or_ind;
-    int ins = s_row_up[l_tx] + mis_or_ind;
-    int cell = match > del ? match : del;
-    cell = cell > ins ? cell : ins;
-    // Write back to our current sliding window row index.
-    xf_mat_row2[g_tx] = cell;
+    int ins = s_row_up[l_tx + 1] + mis_or_ind;
+    int del = s_row_up[l_tx] + mis_or_ind;
+    // Write back to our current sliding window row index, set pointer.
+	char ptr;
+	if (match > del && match > ins) {
+		xf_mat_row2[g_tx] = match;
+		ptr = MATCH;
+	}
+	else if (ins > match && ins > del) {
+		xf_mat_row2[g_tx] = ins;
+		ptr = INS;
+	}
+	else {
+		xf_mat_row2[g_tx] = del;
+		ptr = DEL;
+	}
     // Write back to our untransformed matrix.
-    mat[(tlen + 1) * (comp_y_off - g_tx) + g_tx] = cell;
+	int xidx = g_tx / PTRS_PER_ELT;
+	int xshift = PTR_BITS * (g_tx % PTRS_PER_ELT);
+	int elts_per_row = ceil((tlen+1) / float(PTRS_PER_ELT));
+    mat[elts_per_row * (comp_y_off - g_tx) + xidx] |= ptr << xshift;
   }
 }
 
-int * xs_t_geq_q_man(
+uint32_t * xs_t_geq_q_man(
   char * t,
   char * q,
   uint32_t tlen,
@@ -97,12 +116,12 @@ int * xs_t_geq_q_man(
   int * xf_mat_row1_d = xf_mat_row0_d + (tlen + 1);
   int * xf_mat_row2_d = xf_mat_row1_d + (tlen + 1);
 
-  // Maintain a full untransformed matrix for PCIe transfer after
+  // Maintain a full untransformed matrix (of back-pointers) for PCIe transfer after
   // compute is done. This min/maxes our memory utilization.
-  int * mat_d = xf_mat_row2_d + (tlen + 1);
+  uint32_t * mat_d = (uint32_t *) (xf_mat_row2_d + (tlen + 1));
 
   // Pointers to target and query.
-  char * t_d = (char *) (mat_d + (tlen + 1) * (qlen + 1));
+  char * t_d = (char *) (mat_d + int(ceil((tlen + 1) / float(PTRS_PER_ELT))) * (qlen + 1));
   char * q_d = t_d + tlen;
 
   // Copy our target and query to the GPU.
@@ -167,8 +186,9 @@ int * xs_t_geq_q_man(
   }
 
   // Copy back our untransformed matrix to the host.
-  int * mat = new int [(tlen + 1) * (qlen + 1)];
-  cudaMemcpyAsync(mat, mat_d, (tlen + 1) * (qlen + 1) * sizeof(int), cudaMemcpyDeviceToHost, *stream);
+  uint64_t mat_size = ceil((tlen + 1) / float(PTRS_PER_ELT)) * (qlen + 1);
+  uint32_t * mat = new uint32_t [mat_size];
+  cudaMemcpyAsync(mat, mat_d, mat_size * sizeof(uint32_t), cudaMemcpyDeviceToHost, *stream);
   return mat;
 }
 

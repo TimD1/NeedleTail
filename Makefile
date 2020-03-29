@@ -5,7 +5,7 @@ CUDA_INC  = -I/usr/local/cuda/include/
 BASE_MAIN = nw.cpp
 BASE_DEPS = nw.cpp nw_general.h
 CUDA_MAIN = nw.cu
-CUDA_DEPS = nw.cu nw_general.h xs.cuh xs_core.cuh
+CUDA_DEPS = nw.cu nw_general.h xs.h xs_core.h
 
 all: gpu_nw base_nw gpu_nw_debug
 

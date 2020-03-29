@@ -1,5 +1,5 @@
 #include "nw_general.h"
-#include "xs.cuh"
+#include "xs.h"
 
 int main() {
   // Input variables.
@@ -50,15 +50,18 @@ int main() {
 
     // Run matrix computation and time runtime.
     start = std::chrono::high_resolution_clock::now();
-    int * nw_score_mat = xs_man(t, q, tlen, qlen, GAP_SCORE);
+    uint32_t * nw_ptr_mat = xs_man(t, q, tlen, qlen, GAP_SCORE);
     finish = std::chrono::high_resolution_clock::now();
     runtime += std::chrono::duration_cast<std::chrono::microseconds>(finish - start);
 
-    // Backtrack through matrix.
-    nw_backtrack(nw_score_mat, s, t, q, tlen, qlen, GAP_SCORE);
+    // Debug print pointer matrix.
+    /* print_ptr_mat(nw_ptr_mat, t, q, tlen, qlen); */
+
+    // Backtrack through pointer matrix.
+    nw_ptr_backtrack(nw_ptr_mat, s, t, q, tlen, qlen, GAP_SCORE);
 
     // Clean up memory.
-    delete [] nw_score_mat;
+    delete [] nw_ptr_mat;
     delete [] q;
     delete [] t;
   }

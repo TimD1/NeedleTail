@@ -12,7 +12,7 @@
 #include "cuda.h"
 #include "cuda_runtime.h"
 
-#define NUM_TEST_FILES 8
+#define NUM_TEST_FILES 7
 #define GAP_SCORE -1
 
 // 2-bit encoding for alignment matrix back-pointers
@@ -44,7 +44,9 @@ int get_ptr_val(uint32_t* ptr_mat, int i, int j, int h, int w) {
 	// Bounds checking
 	if( i < 0 || i >= h || j < 0 || j >= w)
 		return OOB;
+	// Find the uintN value at correct location in pointer matrix
 	uint32_t val = ptr_mat[int(i * ceil(w / float(PTRS_PER_ELT)) + j / PTRS_PER_ELT)];
+	// Use mask and shift to extract PTR_BITS-bit pointer from uintN
 	uint32_t mask = pow(2, PTR_BITS) - 1;
 	int shift = PTR_BITS * (j % PTRS_PER_ELT);
 	return (val & (mask << shift)) >> shift;
@@ -151,10 +153,16 @@ void nw_ptr_backtrack(
 			  break;
 		  case OOB:
 			std::cout << "ERROR, out of bounds!" << std::endl;
+			std::cout << "i: " << i << "\tj: " << j << std::endl;
+			std::cout << "tlen: " << tlen << "\tqlen: " << qlen << std::endl;
+			exit(-1);
 			break;
 		  default:
 			std::cout << "ERROR, unexpected back-pointer value: ";
 			std::cout << get_ptr_val(mat, i, j, qlen+1, tlen+1) << std::endl;
+			std::cout << "i: " << i << "\tj: " << j << std::endl;
+			std::cout << "tlen: " << tlen << "\tqlen: " << qlen << std::endl;
+			exit(-1);
 			break;
 	  }
   }

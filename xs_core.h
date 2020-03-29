@@ -78,11 +78,11 @@ __global__ void xs_core_comp(
     int del = s_row_up[l_tx] + mis_or_ind;
     // Write back to our current sliding window row index, set pointer.
 	char ptr;
-	if (match > del && match > ins) {
+	if (match >= ins && match >= del) {
 		xf_mat_row2[g_tx] = match;
 		ptr = MATCH;
 	}
-	else if (ins > match && ins > del) {
+	else if (ins >= match && ins >= del) {
 		xf_mat_row2[g_tx] = ins;
 		ptr = INS;
 	}
@@ -94,7 +94,7 @@ __global__ void xs_core_comp(
 	int xidx = g_tx / PTRS_PER_ELT;
 	int xshift = PTR_BITS * (g_tx % PTRS_PER_ELT);
 	int elts_per_row = ceil((tlen+1) / float(PTRS_PER_ELT));
-    mat[elts_per_row * (comp_y_off - g_tx) + xidx] |= ptr << xshift;
+    atomicOr(mat + elts_per_row * (comp_y_off - g_tx) + xidx, ptr << xshift);
   }
 }
 

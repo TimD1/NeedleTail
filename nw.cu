@@ -50,7 +50,7 @@ int main() {
 
     // Run matrix computation and time runtime.
     start = std::chrono::high_resolution_clock::now();
-    uint32_t * nw_ptr_mat = xs_man(t, q, tlen, qlen, GAP_SCORE);
+    uint8_t * nw_ptr_mat = xs_man(t, q, tlen, qlen, GAP_SCORE);
     finish = std::chrono::high_resolution_clock::now();
     runtime += std::chrono::duration_cast<std::chrono::microseconds>(finish - start);
 

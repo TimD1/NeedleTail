@@ -12,16 +12,12 @@
 #include "cuda.h"
 #include "cuda_runtime.h"
 
-#define NUM_TEST_FILES 7
+#define NUM_TEST_FILES 8
 #define GAP_SCORE -1
 
-// 2-bit encoding for alignment matrix back-pointers
-#define PTR_BITS 2
-#define PTRS_PER_ELT 16
 #define MATCH 1
 #define DEL 2
 #define INS 3
-#define OOB -1
 
 __constant__ signed char c_s[16];
 
@@ -39,18 +35,6 @@ __constant__ signed char c_s[16];
 //  Q  G  ..........
 //     C  ..........
 //     T  ..........
-
-int get_ptr_val(uint32_t* ptr_mat, int i, int j, int h, int w) {
-	// Bounds checking
-	if( i < 0 || i >= h || j < 0 || j >= w)
-		return OOB;
-	// Find the uintN value at correct location in pointer matrix
-	uint32_t val = ptr_mat[int(i * ceil(w / float(PTRS_PER_ELT)) + j / PTRS_PER_ELT)];
-	// Use mask and shift to extract PTR_BITS-bit pointer from uintN
-	uint32_t mask = pow(2, PTR_BITS) - 1;
-	int shift = PTR_BITS * (j % PTRS_PER_ELT);
-	return (val & (mask << shift)) >> shift;
-}
 
 signed char base_to_val(char B) {
   // Assume 'A' unless proven otherwise.
@@ -122,7 +106,7 @@ void nw_backtrack(
 
 // Print backtracking pointer matrix
 void print_ptr_mat(
-  uint32_t * mat,
+  uint8_t * mat,
   char * t,
   char * q,
   uint32_t tlen,
@@ -154,7 +138,7 @@ void print_ptr_mat(
 			  std::cout << q[i-2] << " ";
 		}
 		else {
-			int mvmt = get_ptr_val(mat, i-1, j-1, qlen+1, tlen+1);
+			uint8_t mvmt = mat[(i-1)*(tlen+1) + j-1];
 			char c;
 			switch (mvmt) {
 				case INS: c = '^'; break;
@@ -172,7 +156,7 @@ void print_ptr_mat(
 
 // Pointer backtracking for standard 2D matrix.
 void nw_ptr_backtrack(
-  uint32_t * mat,
+  uint8_t * mat,
   signed char * s,
   char * t,
   char * q,
@@ -185,7 +169,7 @@ void nw_ptr_backtrack(
   uint32_t j = tlen;
   uint32_t i = qlen;
   while (i > 0 || j > 0) {
-	  switch(get_ptr_val(mat, i, j, qlen+1, tlen+1)) {
+	  switch(mat[i*(tlen+1)+j]) {
 		  case MATCH:
 			  q_algn = q[i-1] + q_algn;
 			  t_algn = t[j-1] + t_algn;
@@ -201,15 +185,9 @@ void nw_ptr_backtrack(
 			  t_algn = t[j-1] + t_algn;
 			  --j;
 			  break;
-		  case OOB:
-			std::cout << "ERROR, out of bounds!" << std::endl;
-			std::cout << "i: " << i << "\tj: " << j << std::endl;
-			std::cout << "tlen: " << tlen << "\tqlen: " << qlen << std::endl;
-			exit(-1);
-			break;
 		  default:
 			std::cout << "ERROR, unexpected back-pointer value: ";
-			std::cout << get_ptr_val(mat, i, j, qlen+1, tlen+1) << std::endl;
+			std::cout << mat[i*(tlen+1)+j] << std::endl;
 			std::cout << "i: " << i << "\tj: " << j << std::endl;
 			std::cout << "tlen: " << tlen << "\tqlen: " << qlen << std::endl;
 			exit(-1);

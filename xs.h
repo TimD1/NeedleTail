@@ -5,7 +5,7 @@
 #include "xs_core.h"
 #include "cuda_error_check.h"
 
-uint32_t * xs_man(
+uint8_t * xs_man(
   char * t,
   char * q,
   uint32_t tlen,
@@ -14,7 +14,7 @@ uint32_t * xs_man(
 ) {
 
   uint64_t num_GPU_mem_bytes = 3 * (tlen + 1) * sizeof(int);
-  num_GPU_mem_bytes += ceil((tlen+1) / float(PTRS_PER_ELT)) * (qlen+1) * sizeof(uint32_t);
+  num_GPU_mem_bytes += (tlen+1) * (qlen+1) * sizeof(uint8_t);
   num_GPU_mem_bytes += tlen * sizeof(char);
   num_GPU_mem_bytes += qlen * sizeof(char);
   // Malloc memory for our program.
@@ -27,7 +27,7 @@ uint32_t * xs_man(
   // Create a stream.
   cudaStream_t stream;
   cudaStreamCreate(&stream);
-  uint32_t * mat = xs_t_geq_q_man(t, q, tlen, qlen, mis_or_ind, GPU_mem, &stream);
+  uint8_t * mat = xs_t_geq_q_man(t, q, tlen, qlen, mis_or_ind, GPU_mem, &stream);
   cudaStreamSynchronize(stream);
   cudaFree(GPU_mem);
 

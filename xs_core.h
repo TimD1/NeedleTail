@@ -77,7 +77,7 @@ __global__ void xs_core_comp(
     int ins = s_row_up[l_tx + 1] + mis_or_ind;
     int del = s_row_up[l_tx] + mis_or_ind;
     // Write back to our current sliding window row index, set pointer.
-	char ptr;
+	uint32_t ptr;
 	if (match >= ins && match >= del) {
 		xf_mat_row2[g_tx] = match;
 		ptr = MATCH;
@@ -91,10 +91,11 @@ __global__ void xs_core_comp(
 		ptr = DEL;
 	}
     // Write back to our untransformed matrix.
-	int xidx = g_tx / PTRS_PER_ELT;
+	int xidx = g_tx;
+	int yidx = comp_y_off - xidx;
 	int xshift = PTR_BITS * (g_tx % PTRS_PER_ELT);
 	int elts_per_row = ceil((tlen+1) / float(PTRS_PER_ELT));
-    atomicOr(mat + elts_per_row * (comp_y_off - g_tx) + xidx, ptr << xshift);
+    atomicOr(mat + elts_per_row * yidx + xidx / PTRS_PER_ELT, ptr << xshift);
   }
 }
 

@@ -120,6 +120,56 @@ void nw_backtrack(
   std::cout << q_algn << std::endl;
 }
 
+// Print backtracking pointer matrix
+void print_ptr_mat(
+  uint32_t * mat,
+  char * t,
+  char * q,
+  uint32_t tlen,
+  uint32_t qlen
+) {
+	std::cout << "tlen: " << tlen << std::endl;
+	std::cout << "qlen: " << qlen << std::endl;
+	std::cout << "template: ";
+	for (int i = 0; i < tlen; i++)
+		std::cout << t[i];
+	std::cout << std::endl;
+	std::cout << "query: ";
+	for (int i = 0; i < qlen; i++)
+		std::cout << q[i];
+	std::cout << std::endl;
+
+  for (int i = 0; i <= qlen+1; ++i) {
+    for (int j = 0; j <= tlen+1; ++j) {
+		if (i == 0) {
+		  if (j <= 1)
+			  std::cout << "." << " ";
+	      else
+			  std::cout << t[j-2] << " ";
+		}
+		else if (j == 0) {
+		  if (i == 1)
+			  std::cout << "." << " ";
+		  else
+			  std::cout << q[i-2] << " ";
+		}
+		else {
+			int mvmt = get_ptr_val(mat, i-1, j-1, qlen+1, tlen+1);
+			char c;
+			switch (mvmt) {
+				case INS: c = '^'; break;
+				case DEL: c = '<'; break;
+				case MATCH: c = '\\'; break;
+				default: c = 'X'; break;
+			}
+		    std::cout << c << " ";
+		}
+	}
+    std::cout << std::endl;
+  }
+}
+
+
 // Pointer backtracking for standard 2D matrix.
 void nw_ptr_backtrack(
   uint32_t * mat,
@@ -168,56 +218,6 @@ void nw_ptr_backtrack(
   }
   std::cout << t_algn << std::endl;
   std::cout << q_algn << std::endl << std::endl;
-}
-
-
-// Print backtracking pointer matrix
-void print_ptr_mat(
-  uint32_t * mat,
-  char * t,
-  char * q,
-  uint32_t tlen,
-  uint32_t qlen
-) {
-	std::cout << "tlen: " << tlen << std::endl;
-	std::cout << "qlen: " << qlen << std::endl;
-	std::cout << "template: ";
-	for (int i = 0; i < tlen; i++)
-		std::cout << t[i];
-	std::cout << std::endl;
-	std::cout << "query: ";
-	for (int i = 0; i < qlen; i++)
-		std::cout << q[i];
-	std::cout << std::endl;
-
-  for (int i = 0; i <= qlen+1; ++i) {
-    for (int j = 0; j <= tlen+1; ++j) {
-		if (i == 0) {
-		  if (j <= 1)
-			  std::cout << "." << " ";
-	      else
-			  std::cout << t[j-2] << " ";
-		}
-		else if (j == 0) {
-		  if (i == 1)
-			  std::cout << "." << " ";
-		  else
-			  std::cout << q[i-2] << " ";
-		}
-		else {
-			int mvmt = get_ptr_val(mat, i-1, j-1, qlen+1, tlen+1);
-			char c;
-			switch (mvmt) {
-				case INS: c = '^'; break;
-				case DEL: c = '<'; break;
-				case MATCH: c = '\\'; break;
-				default: c = 'X'; break;
-			}
-		    std::cout << c << " ";
-		}
-	}
-    std::cout << std::endl;
-  }
 }
 
 #endif

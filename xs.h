@@ -21,7 +21,9 @@ uint32_t * xs_man(
   void * GPU_mem = NULL;
   cuda_error_check( cudaMalloc((void **) & GPU_mem, num_GPU_mem_bytes) );
   // Initialize allocated memory to zeros.
-  cuda_error_check( cudaMemset(GPU_mem, 0, num_GPU_mem_bytes) );
+  // TODO: make this asynchronous later to optimize
+  cuda_error_check( convertToCudartError( 
+			  cuMemsetD8((CUdeviceptr)(GPU_mem), 0, num_GPU_mem_bytes) ) );
   // Create a stream.
   cudaStream_t stream;
   cudaStreamCreate(&stream);

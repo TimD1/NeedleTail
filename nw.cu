@@ -61,7 +61,7 @@ int main() {
     nw_ptr_backtrack(nw_ptr_mat, s, t, q, tlen, qlen, GAP_SCORE);
 
     // Clean up memory.
-    delete [] nw_ptr_mat;
+	cuda_error_check( cudaFreeHost(nw_ptr_mat) );
     delete [] q;
     delete [] t;
   }

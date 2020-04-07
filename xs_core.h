@@ -66,7 +66,9 @@ __global__ void xs_core_comp(
     if (l_tx == 0 || g_tx == comp_x_off)
       s_row_up[l_tx] = xf_mat_row1[g_tx - 1];
     s_row_up[l_tx + 1] = xf_mat_row1[g_tx];
-    __syncthreads();
+  }
+  __syncthreads();
+  if (g_tx >= comp_x_off && g_tx < comp_x_off + comp_w) {
     // Do the NW cell calculation.
     int match = xf_mat_row0[g_tx - 1]
       + cuda_nw_get_sim(q[comp_y_off - g_tx - 1], t[g_tx - 1]);

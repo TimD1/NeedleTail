@@ -36,6 +36,10 @@ __constant__ signed char c_s[16];
 //     C  ..........
 //     T  ..........
 
+uint32_t divide_then_round_up(uint32_t dividend, uint32_t divisor) {
+	return (dividend - 1) / divisor + 1;
+}
+
 signed char base_to_val(char B) {
   // Assume 'A' unless proven otherwise.
   signed char ret = 0;
@@ -140,11 +144,11 @@ void print_score_as_ptr_mat(
 			  std::cout << q[i-2] << " ";
 		}
 		else {
-			if (i > 1 && j > 1 && mat[(tlen+1) * (i-1) + j-1] == 
+			if (i > 1 && j > 1 && mat[(tlen+1) * (i-1) + j-1] ==
 				mat[(tlen+1)*(i-2) + (j-2)] + nw_get_sim(s, q[i-2], t[j-2])) {
 				std::cout << '\\' << " ";
 			}
-			else if (i > 1 && mat[(tlen+1) * (i-1) + j-1] == 
+			else if (i > 1 && mat[(tlen+1) * (i-1) + j-1] ==
 					mat[(tlen+1) * (i-2) + j-1] + mis_or_ind) {
 				std::cout << '^' << " ";
 			}

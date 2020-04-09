@@ -1,8 +1,8 @@
 #ifndef XS_CORE_CUH
 #define XS_CORE_CUH
 
-#include "nw_general.h"
-#include "cuda_error_check.h"
+#include "nw_general.hpp"
+#include "cuda_error_check.cuh"
 
 __global__ void xs_core_init(
   uint32_t tlen,
@@ -124,14 +124,14 @@ uint8_t * xs_t_geq_q_man(
   // Prepare the first 2 rows of our transformed compute matrix,
   // and the border elements for our untranformed matrix.
   uint32_t init_num_threads = (tlen + 1) > (qlen + 1) ? (tlen + 1) : (qlen + 1);
-  dim3 init_g_dim(ceil(init_num_threads / ((float) 1024)));
+  dim3 init_g_dim(divide_then_round_up(init_num_threads, 1024));
   dim3 init_b_dim(1024);
   xs_core_init <<<init_g_dim, init_b_dim, 0, *stream>>>
     (tlen, qlen, mis_or_ind, xf_mat_row0_d, xf_mat_row1_d, mat_d);
 
   // Run our matrix scoring algorithm.
   uint32_t comp_num_threads = (tlen + 1);
-  dim3 comp_g_dim(ceil(comp_num_threads / ((float) 1024)));
+  dim3 comp_g_dim(divide_then_round_up(comp_num_threads, 1024));
   dim3 comp_b_dim(1024);
   // Kernel management variables, see kernel definiton
   // for comments on what these are used for.
@@ -181,12 +181,12 @@ uint8_t * xs_t_geq_q_man(
   // Allocate pinned memory on the host for faster data transfer.
   uint8_t* mat;
   size_t cpu_ptr_mat_bytes = (tlen+1) * (qlen+1) * sizeof(uint8_t);
-  cuda_error_check( 
+  cuda_error_check(
 		  cudaHostAlloc((void**)&mat, cpu_ptr_mat_bytes, cudaHostAllocDefault));
 
   // Copy back our untransformed matrix to the host.
-  cuda_error_check( 
-		  cudaMemcpyAsync(mat, mat_d, cpu_ptr_mat_bytes, 
+  cuda_error_check(
+		  cudaMemcpyAsync(mat, mat_d, cpu_ptr_mat_bytes,
 			  cudaMemcpyDeviceToHost, *stream) );
 
   return mat;

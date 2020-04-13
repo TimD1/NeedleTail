@@ -1,4 +1,4 @@
-#include "poolman.h"
+#include "poolman.hpp"
 
 using namespace std;
 
@@ -180,7 +180,7 @@ void PoolMan::print_pool() {
 
   cout << "Allocs\n";
   for ( auto it = allocs_.begin(); it != allocs_.end(); it++ ) {
-    cout << (uintptr_t) it->first << " " << it->second << "\n"; 
+    cout << (uintptr_t) it->first << " " << it->second << "\n";
   }
 
   cout << "\n";

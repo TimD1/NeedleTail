@@ -1,5 +1,5 @@
-#ifndef NW_GENERAL_H
-#define NW_GENERAL_H
+#ifndef NEEDLETAIL_GENERAL_HPP
+#define NEEDLETAIL_GENERAL_HPP
 
 #include <bits/stdc++.h>
 #include <stdio.h>
@@ -19,9 +19,8 @@
 #define MATCH             1
 #define DEL               2
 #define INS               3
-#define NUM_THREADS       16
-#define STREAM_BATCH_SIZE 32
-#define BLOCK_SIZE        1024
+#define NUM_THREADS       48
+#define BLOCK_SIZE        1023
 
 #define DEVICE_POOL_ALLOC_BYTES 2000000000  // Number of bytes per cudaMalloc pool allocation
 #define DEVICE_POOL_ALLOC_COUNT 1           // Number of cudaMalloc pool allocations to perform

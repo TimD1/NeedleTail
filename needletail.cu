@@ -1,7 +1,7 @@
-#include "nw_general.h"
+#include "needletail_general.hpp"
 #include "needletail_threads.cuh"
 #include "testbatch.hpp"
-#include "pools.h"
+#include "pools.hpp"
 #include <pthread.h>
 
 TestBatch test_batch("batch.txt");

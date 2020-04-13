@@ -1,5 +1,5 @@
-#ifndef _POOLMAN_H_
-#define _POOLMAN_H_
+#ifndef POOLMAN_HPP
+#define POOLMAN_HPP
 
 #include <list>
 #include <map>

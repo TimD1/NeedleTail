@@ -6,7 +6,7 @@
 #include "needletail_kernels.cuh"
 #include "pools.hpp"
 
-std::pair<char *, char *> needletail_stream_single (
+std::tuple<char *, char *, int> needletail_stream_single (
   const char * t,
   const char * q,
   uint32_t     tlen,
@@ -14,6 +14,7 @@ std::pair<char *, char *> needletail_stream_single (
   signed char  mis_or_ind,
   bool         swap_t_q
 ) {
+  std::tuple<char *, char *, int> results;
   std::pair<char *, char *> algn;
   cudaStream_t stream;
   uint64_t     device_mem_bytes;
@@ -27,6 +28,7 @@ std::pair<char *, char *> needletail_stream_single (
   uint8_t *    mat_d = NULL;
   char *       t_d = NULL;
   char *       q_d = NULL;
+  int          opt_score;
 
   cudaStreamCreate( &stream );
 
@@ -71,9 +73,11 @@ std::pair<char *, char *> needletail_stream_single (
 
   // Schedule device to host memory copy.
   cudaMemcpyAsync(host_mem_ptr, mat_d, host_mem_bytes, cudaMemcpyDeviceToHost, stream);
+  cudaMemcpyAsync(&opt_score, col_d + (qlen + tlen), sizeof(int), cudaMemcpyDeviceToHost, stream);
+
 
   // Synchronize with stream and start cleanup.
-  cudaStreamSynchronize(stream );
+  cudaStreamSynchronize(stream);
 
   pthread_mutex_lock(&device_pool_lock);
   device_pool.free(device_mem_ptr);
@@ -89,9 +93,12 @@ std::pair<char *, char *> needletail_stream_single (
   host_pool.free( host_mem_ptr );
   pthread_mutex_unlock( &host_pool_lock );
 
-  // Return the aligned strings
+  // Return the aligned strings and optimal score.
+  std::get<0>(results) = algn.first;
+  std::get<1>(results) = algn.second;
+  std::get<2>(results) = opt_score;
   delete [] col;
-  return algn;
+  return results;
 }
 
 #endif

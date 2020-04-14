@@ -19,7 +19,7 @@
 #define MATCH             1
 #define DEL               2
 #define INS               3
-#define NUM_THREADS       128
+#define NUM_THREADS       12
 #define BLOCK_SIZE        1023
 
 #define DEVICE_POOL_ALLOC_BYTES 2000000000  // Number of bytes per cudaMalloc pool allocation

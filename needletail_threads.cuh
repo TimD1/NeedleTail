@@ -28,7 +28,7 @@ std::tuple<char *, char *, int> needletail_stream_single (
   uint8_t *    mat_d = NULL;
   char *       t_d = NULL;
   char *       q_d = NULL;
-  int          opt_score;
+  int *        opt_score;
 
   cudaStreamCreate( &stream );
 
@@ -49,6 +49,7 @@ std::tuple<char *, char *, int> needletail_stream_single (
   // Allocate memory
   device_mem_ptr = device_pool.malloc( device_mem_bytes );
   host_mem_ptr = (uint8_t *) host_pool.malloc( host_mem_bytes );
+  opt_score = (int *) host_pool.malloc( sizeof(int) );
 
   // Compute argument addresses
   col_d = (int *) device_mem_ptr;
@@ -69,7 +70,7 @@ std::tuple<char *, char *, int> needletail_stream_single (
 
   // Schedule device to host memory copy.
   cudaMemcpyAsync(host_mem_ptr, mat_d, host_mem_bytes, cudaMemcpyDeviceToHost, stream);
-  cudaMemcpyAsync(&opt_score, col_d + (qlen + tlen), sizeof(int), cudaMemcpyDeviceToHost, stream);
+  cudaMemcpyAsync(opt_score, col_d + (qlen + tlen), sizeof(int), cudaMemcpyDeviceToHost, stream);
 
   // Synchronize with stream and start cleanup.
   cudaStreamSynchronize(stream);
@@ -82,13 +83,15 @@ std::tuple<char *, char *, int> needletail_stream_single (
   // Backtrack using the matrix in host memory
   algn = nw_ptr_backtrack(host_mem_ptr, swap_t_q, t, q, tlen, qlen);
 
-  // Free the host memory
-  host_pool.free( host_mem_ptr );
-
   // Return the aligned strings and optimal score.
   std::get<0>(results) = algn.first;
   std::get<1>(results) = algn.second;
-  std::get<2>(results) = opt_score;
+  std::get<2>(results) = *opt_score;
+
+  // Free the host memory
+  host_pool.free( host_mem_ptr );
+  host_pool.free( opt_score );
+
   delete [] col;
   return results;
 }

@@ -9,6 +9,8 @@ CPU_HDR    = testbatch.hpp
 GPU_SRC    = needletail.cu poolman.cpp testbatch.cpp
 GPU_HDR    = cuda_error_check.cuh needletail_general.hpp needletail_kernels.cuh needletail_threads.cuh poolman.hpp pools.hpp testbatch.hpp
 
+all: gpu_nw base_nw batchgen
+
 gpu_nw: $(GPU_SRC) $(GPU_HDR)
 	$(NVCC) $(NVCC_FLAGS) $(GPU_SRC) -o $@.o $(CUDA_LINK)
 

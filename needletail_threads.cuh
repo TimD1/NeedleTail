@@ -47,12 +47,8 @@ std::tuple<char *, char *, int> needletail_stream_single (
   host_mem_bytes    = (tlen + 1) * (qlen + 1) * sizeof(uint8_t);
 
   // Allocate memory
-  pthread_mutex_lock( &device_pool_lock );
   device_mem_ptr = device_pool.malloc( device_mem_bytes );
-  pthread_mutex_unlock( &device_pool_lock );
-  pthread_mutex_lock( &host_pool_lock );
   host_mem_ptr = (uint8_t *) host_pool.malloc( host_mem_bytes );
-  pthread_mutex_unlock( &host_pool_lock );
 
   // Compute argument addresses
   col_d = (int *) device_mem_ptr;
@@ -75,13 +71,11 @@ std::tuple<char *, char *, int> needletail_stream_single (
   cudaMemcpyAsync(host_mem_ptr, mat_d, host_mem_bytes, cudaMemcpyDeviceToHost, stream);
   cudaMemcpyAsync(&opt_score, col_d + (qlen + tlen), sizeof(int), cudaMemcpyDeviceToHost, stream);
 
-
   // Synchronize with stream and start cleanup.
   cudaStreamSynchronize(stream);
 
-  pthread_mutex_lock(&device_pool_lock);
+  // Free device memory.
   device_pool.free(device_mem_ptr);
-  pthread_mutex_unlock(&device_pool_lock);
 
   cudaStreamDestroy(stream);
 
@@ -89,9 +83,7 @@ std::tuple<char *, char *, int> needletail_stream_single (
   algn = nw_ptr_backtrack(host_mem_ptr, swap_t_q, t, q, tlen, qlen);
 
   // Free the host memory
-  pthread_mutex_lock( &host_pool_lock );
   host_pool.free( host_mem_ptr );
-  pthread_mutex_unlock( &host_pool_lock );
 
   // Return the aligned strings and optimal score.
   std::get<0>(results) = algn.first;

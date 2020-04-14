@@ -5,37 +5,8 @@
 #include "testbatch.hpp"
 #include "cuda_error_check.cuh"
 
-__global__ void needletail_init_kernel (
-	uint32_t tlen,
-	uint32_t qlen,
-	signed char mis_or_ind,
-	uint8_t * mat
-) {
-	// Get the global thread index.
-	uint32_t g_tx = (blockIdx.x * blockDim.x) + threadIdx.x;
 
-	// Initialize left column of backtrack matrix
-	if (g_tx <= tlen) {
-		uint32_t left_col_idx;
-		if (g_tx <= qlen)
-			left_col_idx = g_tx * (g_tx+1) / 2;
-		else
-			left_col_idx = qlen * (qlen+1) / 2 + (g_tx-qlen) * (qlen+1);
-		mat[left_col_idx] = DEL;
-	}
-
-	// Initialize top row of backtrack matrix
-	if (g_tx <= qlen) {
-		uint32_t diag_idx = g_tx * (g_tx + 1) / 2 + g_tx;
-		mat[diag_idx] = INS;
-	}
-
-	// Write 0 to the first cell of our transformed matrix row0.
-	if (g_tx == 0)
-		mat[0] = 0;
-}
-
-__global__ void needletail_comp_kernel (
+__global__ void needletail_kernel (
 char * t,
 char * q,
 uint32_t tlen,

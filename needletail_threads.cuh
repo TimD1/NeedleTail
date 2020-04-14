@@ -63,9 +63,7 @@ std::tuple<char *, char *, int> needletail_stream_single (
   cudaMemcpyAsync(q_d, q, qlen * sizeof(char), cudaMemcpyHostToDevice, stream);
 
   // Schedule kernel launches.
-  needletail_init_kernel <<< divide_then_round_up((tlen + 1), BLOCK_SIZE), BLOCK_SIZE, 0, stream >>>
-    (tlen, qlen, mis_or_ind, mat_d);
-  needletail_comp_kernel <<< 1, BLOCK_SIZE, shared_mem_size, stream >>>
+  needletail_kernel <<< 1, BLOCK_SIZE, shared_mem_size, stream >>>
     (t_d, q_d, tlen, qlen, col_d, max_strides, mis_or_ind, mat_d);
 
   // Schedule device to host memory copy.

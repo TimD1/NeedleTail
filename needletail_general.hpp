@@ -83,30 +83,40 @@ std::pair<char *, char *> nw_ptr_backtrack (
   uint32_t j = tlen;
   uint32_t i = qlen;
   while (i > 0 || j > 0) {
-    switch(mat[ij_to_z(i, j, tlen, qlen)]) {
-      case MATCH:
-        q_algn = q[i-1] + q_algn;
-        t_algn = t[j-1] + t_algn;
-        --i; --j;
-        break;
-      case INS:
-        q_algn = q[i-1] + q_algn;
-        t_algn = '-' + t_algn;
-        --i;
-        break;
-      case DEL:
-        q_algn = '-' + q_algn;
-        t_algn = t[j-1] + t_algn;
-        --j;
-        break;
-      default:
-        std::cout << "ERROR, unexpected back-pointer value: ";
-        std::cout << mat[ij_to_z(i, j, tlen, qlen)] << std::endl;
-        std::cout << "i: " << i << "\tj: " << j << std::endl;
-        std::cout << "tlen: " << tlen << "\tqlen: " << qlen << std::endl;
-        exit(-1);
-      break;
-    }
+	  if (i == 0) {
+			q_algn = '-' + q_algn;
+			t_algn = t[j-1] + t_algn;
+			--j;
+	  } else if (j == 0) {
+			q_algn = q[i-1] + q_algn;
+			t_algn = '-' + t_algn;
+			--i;
+	  } else {
+		switch(mat[ij_to_z(i, j, tlen, qlen)]) {
+		  case MATCH:
+			q_algn = q[i-1] + q_algn;
+			t_algn = t[j-1] + t_algn;
+			--i; --j;
+			break;
+		  case INS:
+			q_algn = q[i-1] + q_algn;
+			t_algn = '-' + t_algn;
+			--i;
+			break;
+		  case DEL:
+			q_algn = '-' + q_algn;
+			t_algn = t[j-1] + t_algn;
+			--j;
+			break;
+		  default:
+			std::cout << "ERROR, unexpected back-pointer value: ";
+			std::cout << mat[ij_to_z(i, j, tlen, qlen)] << std::endl;
+			std::cout << "i: " << i << "\tj: " << j << std::endl;
+			std::cout << "tlen: " << tlen << "\tqlen: " << qlen << std::endl;
+			exit(-1);
+		  break;
+		}
+	  }
   }
   // Copy target alignment to c-string.
   char * t_algn_c_str = new char [t_algn.length() + 1];

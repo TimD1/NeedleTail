@@ -48,8 +48,8 @@ std::tuple<char *, char *, int> needletail_stream_single (
 
   // Allocate memory
   device_mem_ptr = device_pool.malloc( device_mem_bytes );
-  host_mem_ptr = (uint8_t *) host_pool.malloc( host_mem_bytes );
-  opt_score = (int *) host_pool.malloc( sizeof(int) );
+  host_mem_ptr = (uint8_t *) host_pool.malloc( host_mem_bytes + sizeof(int) );
+  opt_score = (int*) (host_mem_ptr + host_mem_bytes);
 
   // Compute argument addresses
   col_d = (int *) device_mem_ptr;
@@ -88,7 +88,6 @@ std::tuple<char *, char *, int> needletail_stream_single (
 
   // Free the host memory
   host_pool.free( host_mem_ptr );
-  host_pool.free( opt_score );
 
   delete [] col;
   return results;

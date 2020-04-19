@@ -22,12 +22,11 @@
 #define NUM_THREADS       16
 #define BLOCK_SIZE        511
 
-#define DEVICE_POOL_ALLOC_BYTES 6000000000  // Number of bytes per cudaMalloc pool allocation
-#define DEVICE_POOL_ALLOC_COUNT 1           // Number of cudaMalloc pool allocations to perform
-#define DEVICE_POOL_ALIGN_POW   9           // 2^9 = 512 -> Align pool mallocs to 512B boundaries
-#define   HOST_POOL_ALLOC_BYTES 1000000000  // Number of bytes per cudaHostAlloc pool allocation
-#define   HOST_POOL_ALLOC_COUNT 2           // Number of cudaHostAlloc pool allocations to perform
-#define   HOST_POOL_ALIGN_POW   9           // 2^9 = 512 -> Align pool mallocs to 512B boundaries
+#define DEVICE_POOL_PERCENT   90         // Integer for the % of free GPU bytes to use
+#define DEVICE_POOL_ALIGN_POW 9          // 2^9 = 512 -> Align pool mallocs to 512B boundaries
+#define HOST_POOL_ALLOC_BYTES 1000000000 // Number of bytes per cudaHostAlloc pool allocation
+#define HOST_POOL_ALLOC_COUNT 2          // Number of cudaHostAlloc pool allocations to perform
+#define HOST_POOL_ALIGN_POW   9          // 2^9 = 512 -> Align pool mallocs to 512B boundaries
 
 __constant__ signed char c_s[16];
 extern TestBatch test_batch;

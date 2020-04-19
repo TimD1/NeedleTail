@@ -58,14 +58,18 @@ int main() {
   delete [] sim_mat;
 
   pthread_t t[NUM_THREADS];
-  void *device_pool_ptrs[DEVICE_POOL_ALLOC_COUNT] = {0};
-  void   *host_pool_ptrs[  HOST_POOL_ALLOC_COUNT] = {0};
+  void * device_pool_ptr = NULL;
+  void * host_pool_ptrs[  HOST_POOL_ALLOC_COUNT] = {0};
+  size_t GPU_free_bytes  = 0;
+  size_t GPU_total_bytes = 0;
+  size_t num_GPU_bytes = 0;
 
   // Allocate the memory pools
-  for ( int i = 0; i < DEVICE_POOL_ALLOC_COUNT; i++ ) {
-    cuda_error_check( cudaMalloc( &device_pool_ptrs[i], DEVICE_POOL_ALLOC_BYTES ) );
-    device_pool.add_pool( device_pool_ptrs[i], DEVICE_POOL_ALLOC_BYTES );
-  }
+  cudaMemGetInfo(&GPU_free_bytes, &GPU_total_bytes);
+  num_GPU_bytes = GPU_free_bytes * DEVICE_POOL_PERCENT / 100;
+  cuda_error_check( cudaMalloc( &device_pool_ptr, num_GPU_bytes ) );
+  device_pool.add_pool( device_pool_ptr, num_GPU_bytes );
+
   for ( int i = 0; i < HOST_POOL_ALLOC_COUNT; i++ ) {
     cuda_error_check( cudaHostAlloc( &host_pool_ptrs[i], HOST_POOL_ALLOC_BYTES, cudaHostAllocDefault ) );
     host_pool.add_pool( host_pool_ptrs[i], HOST_POOL_ALLOC_BYTES );
@@ -84,12 +88,9 @@ int main() {
   auto finish = std::chrono::high_resolution_clock::now();
 
   // Free the memory pools
-  for ( int i = 0; i < DEVICE_POOL_ALLOC_COUNT; i++ ) {
-    cuda_error_check( cudaFree( device_pool_ptrs[i] ) );
-  }
-  for ( int i = 0; i < HOST_POOL_ALLOC_COUNT; i++ ) {
+  cuda_error_check( cudaFree( device_pool_ptr ) );
+  for ( int i = 0; i < HOST_POOL_ALLOC_COUNT; i++ )
     cuda_error_check( cudaFreeHost( host_pool_ptrs[i] ) );
-  }
 
   // Print peak pool usages
   std::cout << "Device pool peak B: " << device_pool.get_peak_bytes()  << "\n";

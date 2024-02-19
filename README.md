@@ -1,4 +1,2 @@
 # Needletail: Scalable GPU-Accelerated Long Read Alignment
-Needletail is a proof of concept long read alignment framework. Currently only global alignment is supported. We classify long reads as a query and target string greater than or equal to 2.5kbp. For reads less than 2.5kbp it was found that GASAL2 will provide substantially better performance (https://github.com/nahmedraja/GASAL2).
-
-Needletail was designed as a term-project for EECS 570 - Parallel Computer Architecture, at the University of Michigan - Ann Arbor. We open source this project as a framework for future adaptations.
+Needletail is a proof of concept long read (>= 2500bp) alignment framework. Needletail was designed as a term-project for EECS 570 - Parallel Computer Architecture, at the University of Michigan - Ann Arbor. Our full project report is available at: [https://timd.one/publications/docs/NeedleTail_Report.pdf](https://timd.one/publications/docs/NeedleTail_Report.pdf).
